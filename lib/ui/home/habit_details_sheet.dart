@@ -57,7 +57,7 @@ Future<void> showHabitDetails(BuildContext context, WidgetRef ref, HabitView vie
               title: const Text('Day note'),
               subtitle: Text('Add a note for ${DateFormat('d MMM yyyy').format(day)}'),
               onTap: () async {
-                final existing = await actions.loadNote(habit.id, day);
+                final existing = await actions.loadNote(day);
                 if (!sheetContext.mounted) return;
                 final controller = TextEditingController(text: existing ?? '');
                 final note = await showDialog<String>(
@@ -79,7 +79,7 @@ Future<void> showHabitDetails(BuildContext context, WidgetRef ref, HabitView vie
                   ),
                 );
                 controller.dispose();
-                if (note != null) await actions.saveNote(habit.id, day, note);
+                if (note != null) await actions.saveNote(day, note);
                 if (sheetContext.mounted) Navigator.of(sheetContext).pop();
               },
             ),
