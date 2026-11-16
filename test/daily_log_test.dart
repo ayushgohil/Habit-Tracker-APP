@@ -42,9 +42,9 @@ void main() {
   });
 
   test('completion can be edited and undone without affecting another day', () async {
-    await database.setCompletion(day: '2026-11-15', amount: 1);
-    await database.setCompletion(day: '2026-11-16', amount: 2);
-    await database.setCompletion(day: '2026-11-16', amount: 0);
+    await database.setCompletion(habitId: habitId, day: '2026-11-15', amount: 1);
+    await database.setCompletion(habitId: habitId, day: '2026-11-16', amount: 2);
+    await database.setCompletion(habitId: habitId, day: '2026-11-16', amount: 0);
 
     final rows = await database.select(database.completions).get();
     expect(rows, hasLength(1));
