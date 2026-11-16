@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/habit_icons.dart';
-import '../../core/streak.dart';
 import '../../data/providers.dart';
 import '../../theme/ember_theme.dart';
 import '../add_habit/add_habit_screen.dart';

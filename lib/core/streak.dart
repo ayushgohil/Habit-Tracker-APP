@@ -69,17 +69,17 @@ class Schedule {
         ];
         return days.isEmpty ? 'No days selected' : days.join(', ');
       case ScheduleType.timesPerWeek:
-        return '${target} times a week';
+        return '$target times a week';
       case ScheduleType.everyNDays:
         return 'Every $_safeInterval days';
       case ScheduleType.weekly:
-        return target == 1 ? 'Weekly' : '${target} times a week';
+        return target == 1 ? 'Weekly' : '$target times a week';
       case ScheduleType.fortnightly:
-        return target == 1 ? 'Every 2 weeks' : '${target} times per 2 weeks';
+        return target == 1 ? 'Every 2 weeks' : '$target times per 2 weeks';
       case ScheduleType.monthly:
-        return target == 1 ? 'Monthly' : '${target} times a month';
+        return target == 1 ? 'Monthly' : '$target times a month';
       case ScheduleType.yearly:
-        return target == 1 ? 'Yearly' : '${target} times a year';
+        return target == 1 ? 'Yearly' : '$target times a year';
     }
   }
 }

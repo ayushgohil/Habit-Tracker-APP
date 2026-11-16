@@ -2,6 +2,7 @@
 ///
 /// Days are identified by local-date strings (`yyyy-MM-dd`) so completions
 /// never drift with timezones or daylight saving.
+library;
 
 DateTime startOfDay(DateTime d) => DateTime(d.year, d.month, d.day);
 
