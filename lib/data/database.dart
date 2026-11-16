@@ -32,6 +32,12 @@ class Habits extends Table {
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get archivedAt => dateTime().nullable()();
+  IntColumn get taskType => integer().withDefault(const Constant(0))();
+  BoolColumn get twoDayRule => boolean().withDefault(const Constant(false))();
+  IntColumn get intervalDays => integer().withDefault(const Constant(2))();
+  IntColumn get periodTarget => integer().withDefault(const Constant(1))();
+  IntColumn get targetDurationSeconds => integer().withDefault(const Constant(1800))();
+  DateTimeColumn get pausedAt => dateTime().nullable()();
 }
 
 class Completions extends Table {
@@ -58,10 +64,20 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(QueryExecutor executor) : super(executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            await m.addColumn(habits, habits.taskType);
+            await m.addColumn(habits, habits.twoDayRule);
+            await m.addColumn(habits, habits.intervalDays);
+            await m.addColumn(habits, habits.periodTarget);
+            await m.addColumn(habits, habits.targetDurationSeconds);
+            await m.addColumn(habits, habits.pausedAt);
+          }
+        },
         beforeOpen: (details) async {
           await customStatement('PRAGMA foreign_keys = ON');
         },
@@ -77,13 +93,41 @@ class AppDatabase extends _$AppDatabase {
         .watch();
   }
 
+  Stream<List<Habit>> watchPausedHabits() => (select(habits)
+        ..where((h) => h.pausedAt.isNotNull() & h.archivedAt.isNull())
+        ..orderBy([(h) => OrderingTerm.asc(h.sortOrder)]))
+      .watch();
+
+  Stream<List<Habit>> watchArchivedHabits() =>
+      (select(habits)..where((h) => h.archivedAt.isNotNull())).watch();
+
   Stream<List<Completion>> watchAllCompletions() => select(completions).watch();
 
   Future<int> insertHabit(HabitsCompanion entry) => into(habits).insert(entry);
 
-  Future<void> archiveHabit(int id) {
-    return (update(habits)..where((h) => h.id.equals(id)))
-        .write(HabitsCompanion(archivedAt: Value(DateTime.now())));
+  Future<void> updateHabit(int id, HabitsCompanion changes) async {
+    await (update(habits)..where((h) => h.id.equals(id))).write(changes);
+  }
+
+  Future<void> archiveHabit(int id) => updateHabit(id,
+      HabitsCompanion(archivedAt: Value(DateTime.now())));
+
+  Future<void> restoreHabit(int id) => updateHabit(id,
+      const HabitsCompanion(archivedAt: Value(null), pausedAt: Value(null)));
+
+  Future<void> pauseHabit(int id) => updateHabit(id,
+      HabitsCompanion(pausedAt: Value(DateTime.now())));
+
+  Future<void> resumeHabit(int id) =>
+      updateHabit(id, const HabitsCompanion(pausedAt: Value(null)));
+
+  Future<void> reorderHabits(List<int> ids) async {
+    await transaction(() async {
+      for (var i = 0; i < ids.length; i++) {
+        await (update(habits)..where((h) => h.id.equals(ids[i])))
+            .write(HabitsCompanion(sortOrder: Value(i)));
+      }
+    });
   }
 
   Future<void> deleteHabit(int id) {

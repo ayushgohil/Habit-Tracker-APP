@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/habit_icons.dart';
+import '../../core/streak.dart';
 import '../../data/providers.dart';
 import '../../theme/ember_theme.dart';
 import '../add_habit/add_habit_screen.dart';
@@ -16,6 +17,56 @@ class HomeScreen extends ConsumerWidget {
   void _openAddHabit(BuildContext context) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(builder: (_) => const AddHabitScreen()),
+    );
+  }
+
+  Future<void> _handleHabitTap(
+    BuildContext context,
+    WidgetRef ref,
+    HabitView view,
+    DateTime day,
+  ) async {
+    HapticFeedback.lightImpact();
+    final actions = ref.read(habitActionsProvider);
+    if (view.habit.taskType != HabitTaskType.timed.index) {
+      await actions.tap(view, day);
+      return;
+    }
+
+    final controller = TextEditingController();
+    final minutes = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Log time · ${view.habit.name}'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: 'Minutes completed',
+            suffixText: 'min',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(
+              int.tryParse(controller.text),
+            ),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (minutes == null || minutes <= 0 || !context.mounted) return;
+    await actions.setTimedProgress(
+      view,
+      day,
+      view.countToday + minutes * 60,
     );
   }
 
@@ -93,10 +144,7 @@ class HomeScreen extends ConsumerWidget {
                       progress: v.progress,
                       streakLabel: v.streak.shortLabel,
                       streakActive: v.streak.length > 0,
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        ref.read(habitActionsProvider).tap(v, today);
-                      },
+                      onTap: () => _handleHabitTap(context, ref, v, today),
                       onLongPress: () {
                         HapticFeedback.mediumImpact();
                         showHabitDetails(context, ref, v);
