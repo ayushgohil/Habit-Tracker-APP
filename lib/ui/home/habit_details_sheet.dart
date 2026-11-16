@@ -1,16 +1,13 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/habit_icons.dart';
 import '../../data/providers.dart';
 import '../../theme/ember_theme.dart';
 import '../add_habit/add_habit_screen.dart';
 
-Future<void> showHabitDetails(
-  BuildContext context,
-  WidgetRef ref,
-  HabitView view,
-) {
+Future<void> showHabitDetails(BuildContext context, WidgetRef ref, HabitView view, DateTime day) {
   final actions = ref.read(habitActionsProvider);
   final habit = view.habit;
   return showModalBottomSheet<void>(
@@ -28,24 +25,16 @@ Future<void> showHabitDetails(
               children: [
                 CircleAvatar(
                   radius: 26,
-                  backgroundColor:
-                      Color(habit.colorValue).withValues(alpha: .18),
-                  child: Icon(
-                    habitIconFor(habit.iconKey),
-                    color: Color(habit.colorValue),
-                  ),
+                  backgroundColor: Color(habit.colorValue).withValues(alpha: .18),
+                  child: Icon(habitIconFor(habit.iconKey), color: Color(habit.colorValue)),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(habit.name,
-                          style: Theme.of(context).textTheme.titleLarge),
-                      Text(view.schedule.describe(),
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: EmberColors.textMuted,
-                              )),
+                      Text(habit.name, style: Theme.of(context).textTheme.titleLarge),
+                      Text(view.schedule.describe(), style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: EmberColors.textMuted)),
                     ],
                   ),
                 ),
@@ -58,31 +47,54 @@ Future<void> showHabitDetails(
               children: [
                 _Stat(label: 'Current', value: view.stats.currentStreak.longLabel),
                 _Stat(label: 'Best', value: view.stats.bestStreak.longLabel),
-                _Stat(
-                  label: 'Completion',
-                  value: '${(view.stats.completionRate * 100).round()}%',
-                ),
+                _Stat(label: 'Completion', value: '${(view.stats.completionRate * 100).round()}%'),
               ],
             ),
             const SizedBox(height: 12),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.note_alt_outlined),
+              title: const Text('Day note'),
+              subtitle: Text('Add a note for ${DateFormat('d MMM yyyy').format(day)}'),
+              onTap: () async {
+                final existing = await actions.loadNote(day);
+                if (!sheetContext.mounted) return;
+                final controller = TextEditingController(text: existing ?? '');
+                final note = await showDialog<String>(
+                  context: sheetContext,
+                  builder: (dialogContext) => AlertDialog(
+                    title: const Text('Daily note'),
+                    content: TextField(
+                      controller: controller,
+                      autofocus: true,
+                      minLines: 3,
+                      maxLines: 6,
+                      maxLength: 500,
+                      decoration: const InputDecoration(hintText: 'How did this day go?'),
+                    ),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Cancel')),
+                      FilledButton(onPressed: () => Navigator.of(dialogContext).pop(controller.text), child: const Text('Save')),
+                    ],
+                  ),
+                );
+                controller.dispose();
+                if (note != null) await actions.saveNote(day, note);
+                if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+              },
+            ),
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.edit_outlined),
               title: const Text('Edit habit'),
               onTap: () async {
                 Navigator.of(sheetContext).pop();
-                await Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => AddHabitScreen(habit: habit),
-                  ),
-                );
+                await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => AddHabitScreen(habit: habit)));
               },
             ),
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: Icon(habit.pausedAt == null
-                  ? Icons.pause_circle_outline
-                  : Icons.play_circle_outline),
+              leading: Icon(habit.pausedAt == null ? Icons.pause_circle_outline : Icons.play_circle_outline),
               title: Text(habit.pausedAt == null ? 'Pause' : 'Resume'),
               subtitle: const Text('Temporarily exclude it from your daily list'),
               onTap: () async {
@@ -114,21 +126,10 @@ Future<void> showHabitDetails(
                   context: sheetContext,
                   builder: (dialogContext) => AlertDialog(
                     title: const Text('Delete habit?'),
-                    content: Text(
-                      '"${habit.name}" and its whole history will be removed. '
-                      'This cannot be undone.',
-                    ),
+                    content: Text('"${habit.name}" and its whole history will be removed. This cannot be undone.'),
                     actions: [
-                      TextButton(
-                        onPressed: () =>
-                            Navigator.of(dialogContext).pop(false),
-                        child: const Text('Cancel'),
-                      ),
-                      TextButton(
-                        onPressed: () =>
-                            Navigator.of(dialogContext).pop(true),
-                        child: const Text('Delete'),
-                      ),
+                      TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Cancel')),
+                      TextButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('Delete')),
                     ],
                   ),
                 );
@@ -150,13 +151,10 @@ class _Stat extends StatelessWidget {
   final String value;
   @override
   Widget build(BuildContext context) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: EmberColors.textMuted,
-                  )),
-          Text(value, style: Theme.of(context).textTheme.titleMedium),
-        ],
-      );
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(label, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: EmberColors.textMuted)),
+      Text(value, style: Theme.of(context).textTheme.titleMedium),
+    ],
+  );
 }

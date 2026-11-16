@@ -7,6 +7,14 @@ import 'package:path_provider/path_provider.dart';
 
 part 'database.g.dart';
 
+class DayNotes extends Table {
+  TextColumn get day => text().withLength(min: 10, max: 10)();
+  TextColumn get note => text()();
+
+  @override
+  Set<Column> get primaryKey => {day};
+}
+
 class Habits extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text().withLength(min: 1, max: 60)();
@@ -57,14 +65,14 @@ class Completions extends Table {
       ];
 }
 
-@DriftDatabase(tables: [Habits, Completions])
+@DriftDatabase(tables: [Habits, Completions, DayNotes])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -76,6 +84,9 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(habits, habits.periodTarget);
             await m.addColumn(habits, habits.targetDurationSeconds);
             await m.addColumn(habits, habits.pausedAt);
+          }
+          if (from < 3) {
+            await m.createTable(dayNotes);
           }
         },
         beforeOpen: (details) async {
@@ -135,6 +146,26 @@ class AppDatabase extends _$AppDatabase {
   }
 
   /// Sets the progress of [habitId] on [day]. An [amount] of 0 clears it.
+  Future<String?> getDayNote({required String day}) async {
+    final row = await (select(dayNotes)..where((n) => n.day.equals(day))).getSingleOrNull();
+    return row?.note;
+  }
+
+  Future<void> setDayNote({required String day, required String note}) async {
+    final cleaned = note.trim();
+    if (cleaned.isEmpty) {
+      await (delete(dayNotes)..where((n) => n.day.equals(day))).go();
+      return;
+    }
+    await into(dayNotes).insert(
+      DayNotesCompanion.insert(day: day, note: cleaned),
+      onConflict: DoUpdate(
+        (old) => DayNotesCompanion(note: Value(cleaned)),
+        target: [dayNotes.day],
+      ),
+    );
+  }
+
   Future<void> setCompletion({
     required int habitId,
     required String day,
