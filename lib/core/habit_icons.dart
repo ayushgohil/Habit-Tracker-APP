@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Habit icons are stored by key (not code point) so release builds can
 /// tree-shake the icon font.

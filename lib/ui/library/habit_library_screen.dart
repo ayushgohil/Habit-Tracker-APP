@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/database.dart';
@@ -33,8 +33,7 @@ class HabitLibraryScreen extends ConsumerWidget {
               data: (items) => ReorderableListView.builder(
                 padding: const EdgeInsets.all(16),
                 itemCount: items.length,
-                onReorder: (oldIndex, newIndex) async {
-                  if (newIndex > oldIndex) newIndex--;
+                onReorderItem: (oldIndex, newIndex) async {
                   final reordered = [...items];
                   final item = reordered.removeAt(oldIndex);
                   reordered.insert(newIndex, item);
