@@ -1,20 +1,17 @@
-import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ember/app.dart';
-import 'package:ember/data/database.dart';
 import 'package:ember/data/providers.dart';
 
 void main() {
   testWidgets('Ember app starts and displays its home screen', (tester) async {
-    final database = AppDatabase.forTesting(NativeDatabase.memory());
-    addTearDown(database.close);
-
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          databaseProvider.overrideWithValue(database),
+          habitViewsProvider.overrideWithValue(
+            const AsyncValue.data([]),
+          ),
         ],
         child: const EmberApp(),
       ),
@@ -22,5 +19,6 @@ void main() {
 
     await tester.pump();
     expect(find.text('EMBER'), findsOneWidget);
+    expect(find.text('Light your first ember'), findsOneWidget);
   });
 }
