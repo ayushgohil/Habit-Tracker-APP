@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../core/day.dart';
 import '../core/streak.dart';
 import 'database.dart';
@@ -22,13 +23,13 @@ class HabitView {
   final HabitStats stats;
   final Schedule schedule;
   Streak get streak => stats.currentStreak;
-  int get _target => habit.taskType == HabitTaskType.timed.index ? habit.targetDurationSeconds : habit.dailyTarget;
-  bool get isDone => countToday >= _target;
-  double get progress => _target <= 0 ? 0 : (countToday / _target).clamp(0.0, 1.0).toDouble();
+  int get target => habit.taskType == HabitTaskType.timed.index ? habit.targetDurationSeconds : habit.dailyTarget;
+  bool get isDone => countToday >= target;
+  double get progress => target <= 0 ? 0 : (countToday / target).clamp(0.0, 1.0).toDouble();
 }
 
 final habitViewsProvider = Provider<AsyncValue<List<HabitView>>>((ref) {
-  final today = ref.watch(todayProvider);
+  final selectedDay = ref.watch(todayProvider);
   final h = ref.watch(habitsProvider);
   final c = ref.watch(completionsProvider);
   final error = h.error ?? c.error;
@@ -40,13 +41,13 @@ final habitViewsProvider = Provider<AsyncValue<List<HabitView>>>((ref) {
   for (final item in completions) {
     (byHabit[item.habitId] ??= {})[item.day] = item.amount;
   }
-  final key = dayKey(today);
+  final selectedKey = dayKey(selectedDay);
   return AsyncValue.data([
-    for (final habit in habits) _view(habit, byHabit[habit.id] ?? const {}, today, key),
+    for (final habit in habits) _view(habit, byHabit[habit.id] ?? const {}, selectedDay, selectedKey),
   ]);
 });
 
-HabitView _view(Habit habit, Map<String, int> amounts, DateTime today, String todayKey) {
+HabitView _view(Habit habit, Map<String, int> amounts, DateTime day, String key) {
   final target = habit.taskType == HabitTaskType.timed.index ? habit.targetDurationSeconds : habit.dailyTarget;
   final doneDays = <String>{for (final e in amounts.entries) if (e.value >= target) e.key};
   final schedule = Schedule(
@@ -61,22 +62,26 @@ HabitView _view(Habit habit, Map<String, int> amounts, DateTime today, String to
     schedule: schedule,
     doneDays: doneDays,
     createdAt: habit.createdAt,
-    today: today,
+    today: day,
     taskType: HabitTaskType.values[habit.taskType],
     twoDayRule: habit.twoDayRule,
   );
-  return HabitView(habit: habit, countToday: amounts[todayKey] ?? 0, stats: stats, schedule: schedule);
+  return HabitView(habit: habit, countToday: amounts[key] ?? 0, stats: stats, schedule: schedule);
 }
 
 class HabitActions {
   HabitActions(this._db);
   final AppDatabase _db;
-  Future<void> tap(HabitView view, DateTime day) {
-    final target = view.habit.taskType == HabitTaskType.timed.index ? view.habit.targetDurationSeconds : view.habit.dailyTarget;
-    return _db.setCompletion(habitId: view.habit.id, day: dayKey(day), amount: view.countToday >= target ? 0 : view.countToday + 1);
-  }
+  Future<void> setAmount(HabitView view, DateTime day, int amount) =>
+      _db.setCompletion(habitId: view.habit.id, day: dayKey(day), amount: amount);
+  Future<void> tap(HabitView view, DateTime day) =>
+      setAmount(view, day, view.isDone ? 0 : view.countToday + 1);
   Future<void> setTimedProgress(HabitView view, DateTime day, int seconds) =>
-      _db.setCompletion(habitId: view.habit.id, day: dayKey(day), amount: seconds);
+      setAmount(view, day, seconds);
+  Future<String?> loadNote(int habitId, DateTime day) =>
+      _db.getDayNote(habitId: habitId, day: dayKey(day));
+  Future<void> saveNote(int habitId, DateTime day, String note) =>
+      _db.setDayNote(habitId: habitId, day: dayKey(day), note: note);
   Future<int> add({
     required String name, required String iconKey, required int colorValue,
     required Schedule schedule, required int dailyTarget, required int sortOrder,
