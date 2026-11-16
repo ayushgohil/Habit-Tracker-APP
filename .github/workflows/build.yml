@@ -47,6 +47,42 @@ jobs:
             flutter create --org com.nextlyr --project-name ember --platforms android .
           fi
 
+      - name: Enable Android core library desugaring
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          app_dir = Path("android/app")
+          gradle_file = app_dir / "build.gradle.kts"
+          kotlin_dsl = gradle_file.exists()
+          if not kotlin_dsl:
+              gradle_file = app_dir / "build.gradle"
+          content = gradle_file.read_text()
+
+          if kotlin_dsl:
+              if "isCoreLibraryDesugaringEnabled" not in content:
+                  content = content.replace(
+                      "compileOptions {",
+                      "compileOptions {\\n        isCoreLibraryDesugaringEnabled = true",
+                      1,
+                  )
+              dependency = 'coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")'
+          else:
+              if "coreLibraryDesugaringEnabled" not in content:
+                  content = content.replace(
+                      "compileOptions {",
+                      "compileOptions {\\n        coreLibraryDesugaringEnabled true",
+                      1,
+                  )
+              dependency = "coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'"
+
+          if "desugar_jdk_libs" not in content:
+              content = content.replace("dependencies {", "dependencies {\\n    " + dependency, 1)
+
+          gradle_file.write_text(content)
+          print(f"Enabled core library desugaring in {gradle_file}")
+          PY
+
       - name: Configure Android notification manifest
         run: |
           python3 - <<'PY'
