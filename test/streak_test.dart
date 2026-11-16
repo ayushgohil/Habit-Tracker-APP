@@ -57,12 +57,12 @@ void main() {
     const schedule = Schedule(type: ScheduleType.weekdays, weekdayMask: 21);
     final stats = calculateHabitStats(
       schedule: schedule,
-      doneDays: keys([monday, addDays(monday, 2)]),
+      doneDays: keys([monday, addDays(monday, 2), addDays(monday, 4)]),
       createdAt: monday,
       today: addDays(monday, 6),
     );
-    expect(stats.totalPeriods, 2);
-    expect(stats.completedPeriods, 2);
+    expect(stats.totalPeriods, 3);
+    expect(stats.completedPeriods, 3);
     expect(stats.completionRate, 1);
   });
 
