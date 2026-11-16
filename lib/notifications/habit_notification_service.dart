@@ -92,7 +92,7 @@ class HabitNotificationService {
       scheduled = scheduled.add(Duration(days: daysAhead));
     }
 
-    final details = NotificationDetails(
+    const details = NotificationDetails(
       android: AndroidNotificationDetails(
         _channelId,
         _channelName,
