@@ -87,6 +87,8 @@ class HabitActions {
     required Schedule schedule, required int dailyTarget, required int sortOrder,
     HabitTaskType taskType = HabitTaskType.normal, bool twoDayRule = false,
     int targetDurationSeconds = 1800,
+    bool reminderEnabled = false, int reminderHour = 20, int reminderMinute = 0,
+    bool partialNudgeEnabled = false, int partialNudgeHour = 21, int partialNudgeMinute = 0,
   }) => _db.insertHabit(HabitsCompanion.insert(
     name: name, iconKey: iconKey, colorValue: colorValue,
     scheduleType: Value(schedule.type.index), weekdayMask: Value(schedule.weekdayMask),
@@ -94,11 +96,15 @@ class HabitActions {
     sortOrder: Value(sortOrder), taskType: Value(taskType.index),
     twoDayRule: Value(twoDayRule), intervalDays: Value(schedule.intervalDays),
     periodTarget: Value(schedule.periodTarget), targetDurationSeconds: Value(targetDurationSeconds),
+    reminderEnabled: Value(reminderEnabled), reminderHour: Value(reminderHour), reminderMinute: Value(reminderMinute),
+    partialNudgeEnabled: Value(partialNudgeEnabled), partialNudgeHour: Value(partialNudgeHour), partialNudgeMinute: Value(partialNudgeMinute),
   ));
   Future<void> edit({
     required int id, required String name, required String iconKey, required int colorValue,
     required Schedule schedule, required int dailyTarget, required HabitTaskType taskType,
     required bool twoDayRule, required int targetDurationSeconds,
+    required bool reminderEnabled, required int reminderHour, required int reminderMinute,
+    required bool partialNudgeEnabled, required int partialNudgeHour, required int partialNudgeMinute,
   }) => _db.updateHabit(id, HabitsCompanion(
     name: Value(name), iconKey: Value(iconKey), colorValue: Value(colorValue),
     scheduleType: Value(schedule.type.index), weekdayMask: Value(schedule.weekdayMask),
@@ -106,6 +112,8 @@ class HabitActions {
     periodTarget: Value(schedule.periodTarget), dailyTarget: Value(dailyTarget),
     taskType: Value(taskType.index), twoDayRule: Value(twoDayRule),
     targetDurationSeconds: Value(targetDurationSeconds),
+    reminderEnabled: Value(reminderEnabled), reminderHour: Value(reminderHour), reminderMinute: Value(reminderMinute),
+    partialNudgeEnabled: Value(partialNudgeEnabled), partialNudgeHour: Value(partialNudgeHour), partialNudgeMinute: Value(partialNudgeMinute),
   ));
   Future<void> archive(int id) => _db.archiveHabit(id);
   Future<void> restore(int id) => _db.restoreHabit(id);
