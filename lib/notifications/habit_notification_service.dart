@@ -99,7 +99,7 @@ class HabitNotificationService {
         channelDescription: 'Gentle reminders for the habits you choose.',
         importance: Importance.high,
         priority: Priority.high,
-        actions: const [AndroidNotificationAction('done', 'Done', showsUserInterface: false)],
+        actions: [AndroidNotificationAction('done', 'Done', showsUserInterface: false)],
       ),
     );
 
