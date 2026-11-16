@@ -7,7 +7,7 @@ import 'package:path_provider/path_provider.dart';
 
 part 'database.g.dart';
 
-class HabitDayNotes extends Table {
+class DayNotes extends Table {
   IntColumn get habitId => integer().references(Habits, #id, onDelete: KeyAction.cascade)();
   TextColumn get day => text().withLength(min: 10, max: 10)();
   TextColumn get note => text()();
@@ -66,7 +66,7 @@ class Completions extends Table {
       ];
 }
 
-@DriftDatabase(tables: [Habits, Completions, HabitDayNotes])
+@DriftDatabase(tables: [Habits, Completions, DayNotes])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
@@ -87,7 +87,7 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(habits, habits.pausedAt);
           }
           if (from < 3) {
-            await m.createTable(habitDayNotes);
+            await m.createTable(dayNotes);
           }
         },
         beforeOpen: (details) async {
@@ -152,15 +152,15 @@ class AppDatabase extends _$AppDatabase {
     return row?.note;
   }
 
-  Future<void> setDayNote({required int habitId, required String day, required String note}) async {
+  Future<void> setDayNote({required String day, required String note}) async {
     final cleaned = note.trim();
     if (cleaned.isEmpty) {
       await (delete(habitDayNotes)..where((n) => n.habitId.equals(habitId) & n.day.equals(day))).go();
       return;
     }
     await into(habitDayNotes).insert(
-      HabitDayNotesCompanion.insert(habitId: habitId, day: day, note: cleaned),
-      onConflict: DoUpdate((old) => HabitDayNotesCompanion(note: Value(cleaned)), target: [habitDayNotes.habitId, habitDayNotes.day]),
+      DayNotesCompanion.insert(day: day, note: cleaned),
+      onConflict: DoUpdate((old) => DayNotesCompanion(note: Value(cleaned)), target: [habitDayNotes.habitId, habitDayNotes.day]),
     );
   }
 
