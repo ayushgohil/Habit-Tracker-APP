@@ -147,20 +147,23 @@ class AppDatabase extends _$AppDatabase {
   }
 
   /// Sets the progress of [habitId] on [day]. An [amount] of 0 clears it.
-  Future<String?> getDayNote({required int habitId, required String day}) async {
-    final row = await (select(habitDayNotes)..where((n) => n.habitId.equals(habitId) & n.day.equals(day))).getSingleOrNull();
+  Future<String?> getDayNote({required String day}) async {
+    final row = await (select(dayNotes)..where((n) => n.day.equals(day))).getSingleOrNull();
     return row?.note;
   }
 
   Future<void> setDayNote({required String day, required String note}) async {
     final cleaned = note.trim();
     if (cleaned.isEmpty) {
-      await (delete(habitDayNotes)..where((n) => n.habitId.equals(habitId) & n.day.equals(day))).go();
+      await (delete(dayNotes)..where((n) => n.day.equals(day))).go();
       return;
     }
-    await into(habitDayNotes).insert(
+    await into(dayNotes).insert(
       DayNotesCompanion.insert(day: day, note: cleaned),
-      onConflict: DoUpdate((old) => DayNotesCompanion(note: Value(cleaned)), target: [habitDayNotes.habitId, habitDayNotes.day]),
+      onConflict: DoUpdate(
+        (old) => DayNotesCompanion(note: Value(cleaned)),
+        target: [dayNotes.day],
+      ),
     );
   }
 
