@@ -47,6 +47,7 @@ void main() {
         ),
         doneDays: keys([monday, addDays(monday, 3), addDays(monday, 6)]),
         today: addDays(monday, 6),
+        createdAt: monday,
       );
       expect(result.length, 3);
     });

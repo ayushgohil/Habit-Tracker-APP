@@ -53,9 +53,10 @@ class Schedule {
   }
 
   int get _safeInterval => intervalDays < 1 ? 1 : intervalDays;
-  int get target => type == ScheduleType.timesPerWeek
-      ? timesPerWeek.clamp(1, 7)
-      : periodTarget.clamp(1, 366);
+  int get target => (type == ScheduleType.timesPerWeek
+          ? timesPerWeek.clamp(1, 7)
+          : periodTarget.clamp(1, 366))
+      .toInt();
 
   String describe() {
     switch (type) {
