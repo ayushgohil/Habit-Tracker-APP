@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Draws a progress ring: a muted track with a rounded arc on top.
 class RingPainter extends CustomPainter {

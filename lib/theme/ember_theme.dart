@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Ember's own palette: warm charcoal surfaces with a glowing orange accent.
 class EmberColors {

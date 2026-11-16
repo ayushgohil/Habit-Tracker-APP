@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/habit_icons.dart';
@@ -131,7 +131,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
           ),
           const _Label('Task type'),
           DropdownButtonFormField<HabitTaskType>(
-            value: _taskType,
+            initialValue: _taskType,
             items: const [
               DropdownMenuItem(value: HabitTaskType.normal, child: Text('Normal')),
               DropdownMenuItem(value: HabitTaskType.negative, child: Text('Negative / avoid')),
@@ -165,7 +165,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
           ],
           const _Label('Schedule'),
           DropdownButtonFormField<ScheduleType>(
-            value: _schedule,
+            initialValue: _schedule,
             isExpanded: true,
             items: const [
               DropdownMenuItem(value: ScheduleType.daily, child: Text('Daily')),

@@ -61,7 +61,7 @@ class Completions extends Table {
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
-  AppDatabase.forTesting(QueryExecutor executor) : super(executor);
+  AppDatabase.forTesting(super.executor);
 
   @override
   int get schemaVersion => 2;
@@ -85,7 +85,7 @@ class AppDatabase extends _$AppDatabase {
 
   Stream<List<Habit>> watchActiveHabits() {
     return (select(habits)
-          ..where((h) => h.archivedAt.isNull())
+          ..where((h) => h.archivedAt.isNull() & h.pausedAt.isNull())
           ..orderBy([
             (h) => OrderingTerm.asc(h.sortOrder),
             (h) => OrderingTerm.asc(h.id),
