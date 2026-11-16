@@ -8,6 +8,7 @@ import '../../data/providers.dart';
 import '../../theme/ember_theme.dart';
 import '../add_habit/add_habit_screen.dart';
 import 'habit_details_sheet.dart';
+import '../library/habit_library_screen.dart';
 import 'habit_tile.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -33,7 +34,13 @@ class HomeScreen extends ConsumerWidget {
         child: CustomScrollView(
           slivers: [
             SliverToBoxAdapter(
-              child: _Header(today: today, views: views.valueOrNull),
+              child: _Header(
+                today: today,
+                views: views.valueOrNull,
+                onLibrary: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(builder: (_) => const HabitLibraryScreen()),
+                ),
+              ),
             ),
             ...views.when<List<Widget>>(
               data: (list) => list.isEmpty
@@ -113,10 +120,11 @@ class HomeScreen extends ConsumerWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.today, required this.views});
+  const _Header({required this.today, required this.views, required this.onLibrary});
 
   final DateTime today;
   final List<HabitView>? views;
+  final VoidCallback onLibrary;
 
   @override
   Widget build(BuildContext context) {
@@ -144,6 +152,12 @@ class _Header extends StatelessWidget {
                   letterSpacing: 3,
                   fontWeight: FontWeight.w700,
                 ),
+              ),
+              const Spacer(),
+              IconButton(
+                tooltip: 'Habit library',
+                onPressed: onLibrary,
+                icon: const Icon(Icons.tune_rounded),
               ),
             ],
           ),

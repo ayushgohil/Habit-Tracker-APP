@@ -1,6 +1,5 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../core/day.dart';
 import '../core/streak.dart';
 import 'database.dart';
@@ -10,132 +9,104 @@ final databaseProvider = Provider<AppDatabase>((ref) {
   ref.onDispose(db.close);
   return db;
 });
+final todayProvider = StateProvider<DateTime>((ref) => startOfDay(DateTime.now()));
+final habitsProvider = StreamProvider<List<Habit>>((ref) => ref.watch(databaseProvider).watchActiveHabits());
+final pausedHabitsProvider = StreamProvider<List<Habit>>((ref) => ref.watch(databaseProvider).watchPausedHabits());
+final archivedHabitsProvider = StreamProvider<List<Habit>>((ref) => ref.watch(databaseProvider).watchArchivedHabits());
+final completionsProvider = StreamProvider<List<Completion>>((ref) => ref.watch(databaseProvider).watchAllCompletions());
 
-/// The day the home screen is showing. Rolled over by `EmberApp` on resume.
-final todayProvider =
-    StateProvider<DateTime>((ref) => startOfDay(DateTime.now()));
-
-final habitsProvider = StreamProvider<List<Habit>>(
-  (ref) => ref.watch(databaseProvider).watchActiveHabits(),
-);
-
-final completionsProvider = StreamProvider<List<Completion>>(
-  (ref) => ref.watch(databaseProvider).watchAllCompletions(),
-);
-
-/// A habit together with what the home screen needs to draw it.
 class HabitView {
-  const HabitView({
-    required this.habit,
-    required this.countToday,
-    required this.streak,
-    required this.schedule,
-  });
-
+  const HabitView({required this.habit, required this.countToday, required this.stats, required this.schedule});
   final Habit habit;
   final int countToday;
-  final Streak streak;
+  final HabitStats stats;
   final Schedule schedule;
-
-  bool get isDone => countToday >= habit.dailyTarget;
-
-  double get progress {
-    if (habit.dailyTarget <= 0) return 0;
-    return (countToday / habit.dailyTarget).clamp(0.0, 1.0).toDouble();
-  }
+  Streak get streak => stats.currentStreak;
+  int get _target => habit.taskType == HabitTaskType.timed.index ? habit.targetDurationSeconds : habit.dailyTarget;
+  bool get isDone => countToday >= _target;
+  double get progress => _target <= 0 ? 0 : (countToday / _target).clamp(0.0, 1.0).toDouble();
 }
 
 final habitViewsProvider = Provider<AsyncValue<List<HabitView>>>((ref) {
   final today = ref.watch(todayProvider);
-  final habitsAsync = ref.watch(habitsProvider);
-  final completionsAsync = ref.watch(completionsProvider);
-
-  final error = habitsAsync.error ?? completionsAsync.error;
+  final h = ref.watch(habitsProvider);
+  final c = ref.watch(completionsProvider);
+  final error = h.error ?? c.error;
   if (error != null) return AsyncValue.error(error, StackTrace.current);
-
-  final habits = habitsAsync.valueOrNull;
-  final completions = completionsAsync.valueOrNull;
+  final habits = h.valueOrNull;
+  final completions = c.valueOrNull;
   if (habits == null || completions == null) return const AsyncValue.loading();
-
-  final amountsByHabit = <int, Map<String, int>>{};
-  for (final c in completions) {
-    (amountsByHabit[c.habitId] ??= {})[c.day] = c.amount;
+  final byHabit = <int, Map<String, int>>{};
+  for (final item in completions) {
+    (byHabit[item.habitId] ??= {})[item.day] = item.amount;
   }
-
-  final todayKey = dayKey(today);
+  final key = dayKey(today);
   return AsyncValue.data([
-    for (final h in habits)
-      _buildView(h, amountsByHabit[h.id] ?? const {}, today, todayKey),
+    for (final habit in habits) _view(habit, byHabit[habit.id] ?? const {}, today, key),
   ]);
 });
 
-HabitView _buildView(
-  Habit h,
-  Map<String, int> amounts,
-  DateTime today,
-  String todayKey,
-) {
-  final doneDays = <String>{
-    for (final e in amounts.entries)
-      if (e.value >= h.dailyTarget) e.key,
-  };
+HabitView _view(Habit habit, Map<String, int> amounts, DateTime today, String todayKey) {
+  final target = habit.taskType == HabitTaskType.timed.index ? habit.targetDurationSeconds : habit.dailyTarget;
+  final doneDays = <String>{for (final e in amounts.entries) if (e.value >= target) e.key};
   final schedule = Schedule(
-    type: ScheduleType.values[h.scheduleType],
-    weekdayMask: h.weekdayMask,
-    timesPerWeek: h.timesPerWeek,
+    type: ScheduleType.values[habit.scheduleType],
+    weekdayMask: habit.weekdayMask,
+    timesPerWeek: habit.timesPerWeek,
+    intervalDays: habit.intervalDays,
+    periodTarget: habit.periodTarget,
+    anchorDate: habit.createdAt,
   );
-  return HabitView(
-    habit: h,
-    countToday: amounts[todayKey] ?? 0,
-    streak: computeStreak(schedule: schedule, doneDays: doneDays, today: today),
+  final stats = calculateHabitStats(
     schedule: schedule,
+    doneDays: doneDays,
+    createdAt: habit.createdAt,
+    today: today,
+    taskType: HabitTaskType.values[habit.taskType],
+    twoDayRule: habit.twoDayRule,
   );
+  return HabitView(habit: habit, countToday: amounts[todayKey] ?? 0, stats: stats, schedule: schedule);
 }
 
-/// Everything the UI can do to habits.
 class HabitActions {
   HabitActions(this._db);
-
   final AppDatabase _db;
-
-  /// Adds one step toward today's target; tapping a finished habit resets it.
   Future<void> tap(HabitView view, DateTime day) {
-    final target = view.habit.dailyTarget;
-    final next = view.countToday >= target ? 0 : view.countToday + 1;
-    return _db.setCompletion(
-      habitId: view.habit.id,
-      day: dayKey(day),
-      amount: next,
-    );
+    final target = view.habit.taskType == HabitTaskType.timed.index ? view.habit.targetDurationSeconds : view.habit.dailyTarget;
+    return _db.setCompletion(habitId: view.habit.id, day: dayKey(day), amount: view.countToday >= target ? 0 : view.countToday + 1);
   }
-
+  Future<void> setTimedProgress(HabitView view, DateTime day, int seconds) =>
+      _db.setCompletion(habitId: view.habit.id, day: dayKey(day), amount: seconds);
   Future<int> add({
-    required String name,
-    required String iconKey,
-    required int colorValue,
-    required Schedule schedule,
-    required int dailyTarget,
-    required int sortOrder,
-  }) {
-    return _db.insertHabit(
-      HabitsCompanion.insert(
-        name: name,
-        iconKey: iconKey,
-        colorValue: colorValue,
-        scheduleType: Value(schedule.type.index),
-        weekdayMask: Value(schedule.weekdayMask),
-        timesPerWeek: Value(schedule.timesPerWeek),
-        dailyTarget: Value(dailyTarget),
-        sortOrder: Value(sortOrder),
-      ),
-    );
-  }
-
+    required String name, required String iconKey, required int colorValue,
+    required Schedule schedule, required int dailyTarget, required int sortOrder,
+    HabitTaskType taskType = HabitTaskType.normal, bool twoDayRule = false,
+    int targetDurationSeconds = 1800,
+  }) => _db.insertHabit(HabitsCompanion.insert(
+    name: name, iconKey: iconKey, colorValue: colorValue,
+    scheduleType: Value(schedule.type.index), weekdayMask: Value(schedule.weekdayMask),
+    timesPerWeek: Value(schedule.timesPerWeek), dailyTarget: Value(dailyTarget),
+    sortOrder: Value(sortOrder), taskType: Value(taskType.index),
+    twoDayRule: Value(twoDayRule), intervalDays: Value(schedule.intervalDays),
+    periodTarget: Value(schedule.periodTarget), targetDurationSeconds: Value(targetDurationSeconds),
+  ));
+  Future<void> edit({
+    required int id, required String name, required String iconKey, required int colorValue,
+    required Schedule schedule, required int dailyTarget, required HabitTaskType taskType,
+    required bool twoDayRule, required int targetDurationSeconds,
+  }) => _db.updateHabit(id, HabitsCompanion(
+    name: Value(name), iconKey: Value(iconKey), colorValue: Value(colorValue),
+    scheduleType: Value(schedule.type.index), weekdayMask: Value(schedule.weekdayMask),
+    timesPerWeek: Value(schedule.timesPerWeek), intervalDays: Value(schedule.intervalDays),
+    periodTarget: Value(schedule.periodTarget), dailyTarget: Value(dailyTarget),
+    taskType: Value(taskType.index), twoDayRule: Value(twoDayRule),
+    targetDurationSeconds: Value(targetDurationSeconds),
+  ));
   Future<void> archive(int id) => _db.archiveHabit(id);
-
+  Future<void> restore(int id) => _db.restoreHabit(id);
+  Future<void> pause(int id) => _db.pauseHabit(id);
+  Future<void> resume(int id) => _db.resumeHabit(id);
+  Future<void> reorder(List<int> ids) => _db.reorderHabits(ids);
   Future<void> delete(int id) => _db.deleteHabit(id);
 }
-
-final habitActionsProvider = Provider<HabitActions>(
-  (ref) => HabitActions(ref.watch(databaseProvider)),
-);
+final habitActionsProvider = Provider<HabitActions>((ref) => HabitActions(ref.watch(databaseProvider)));
