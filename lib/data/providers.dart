@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/day.dart';
 import '../core/streak.dart';
 import 'database.dart';
+import '../notifications/habit_notification_service.dart';
 
 final databaseProvider = Provider<AppDatabase>((ref) {
   final db = AppDatabase();
@@ -115,11 +116,38 @@ class HabitActions {
     reminderEnabled: Value(reminderEnabled), reminderHour: Value(reminderHour), reminderMinute: Value(reminderMinute),
     partialNudgeEnabled: Value(partialNudgeEnabled), partialNudgeHour: Value(partialNudgeHour), partialNudgeMinute: Value(partialNudgeMinute),
   ));
-  Future<void> archive(int id) => _db.archiveHabit(id);
-  Future<void> restore(int id) => _db.restoreHabit(id);
-  Future<void> pause(int id) => _db.pauseHabit(id);
-  Future<void> resume(int id) => _db.resumeHabit(id);
+  Future<void> _syncReminder(int id) async {
+    final habit = await (_db.select(_db.habits)..where((h) => h.id.equals(id))).getSingleOrNull();
+    if (habit == null) {
+      await HabitNotificationService.instance.cancelHabit(id);
+    } else {
+      await HabitNotificationService.instance.syncHabit(habit);
+    }
+  }
+
+  Future<void> archive(int id) async {
+    await _db.archiveHabit(id);
+    await _syncReminder(id);
+  }
+
+  Future<void> restore(int id) async {
+    await _db.restoreHabit(id);
+    await _syncReminder(id);
+  }
+
+  Future<void> pause(int id) async {
+    await _db.pauseHabit(id);
+    await _syncReminder(id);
+  }
+
+  Future<void> resume(int id) async {
+    await _db.resumeHabit(id);
+    await _syncReminder(id);
+  }
   Future<void> reorder(List<int> ids) => _db.reorderHabits(ids);
-  Future<void> delete(int id) => _db.deleteHabit(id);
+  Future<void> delete(int id) async {
+    await _db.deleteHabit(id);
+    await HabitNotificationService.instance.cancelHabit(id);
+  }
 }
 final habitActionsProvider = Provider<HabitActions>((ref) => HabitActions(ref.watch(databaseProvider)));
