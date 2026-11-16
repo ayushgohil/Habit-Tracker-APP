@@ -10,6 +10,8 @@ your own device. Optional daily backup to your own Google Drive is planned.
 
 ## What works today
 
+- Ring-grid home screen with a selectable date, per-day journal note, undo action, and a reorderable Up Next list
+- Gold completion celebration with animated reveal and haptic feedback
 - Ring-grid home screen: tap to log, long-press for details, archive or delete
 - Habit schedules: every day, specific weekdays, or N times per week
 - Habits that need several taps a day (for example 8 glasses of water)
@@ -56,13 +58,12 @@ test/                      streak logic tests
 
 ## Roadmap
 
-1. Edit habits, reorder the grid
-2. Local reminders (per-habit notification times)
-3. Stats and history (calendar heatmap, best streak, completion rate)
-4. Optional daily backup to the Google Drive app-data folder
-5. Manual export and import of a backup file
-6. Home screen widget
-7. Wear OS companion
+1. Local reminders (per-habit notification times)
+2. Stats and history (calendar heatmap, best streak, completion rate)
+3. Optional daily backup to the Google Drive app-data folder
+4. Manual export and import of a backup file
+5. Home screen widget
+6. Wear OS companion
 
 ## Notes for later
 
