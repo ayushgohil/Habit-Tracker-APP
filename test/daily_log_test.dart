@@ -24,27 +24,27 @@ void main() {
   });
 
   test('daily notes are saved independently for each date', () async {
-    await database.setDayNote(habitId: habitId, day: '2026-11-15', note: 'Felt focused');
-    await database.setDayNote(habitId: habitId, day: '2026-11-16', note: 'Read before work');
+    await database.setDayNote(day: '2026-11-15', note: 'Felt focused');
+    await database.setDayNote(day: '2026-11-16', note: 'Read before work');
 
-    expect(await database.getDayNote(habitId: habitId, day: '2026-11-15'), 'Felt focused');
-    expect(await database.getDayNote(habitId: habitId, day: '2026-11-16'), 'Read before work');
+    expect(await database.getDayNote(day: '2026-11-15'), 'Felt focused');
+    expect(await database.getDayNote(day: '2026-11-16'), 'Read before work');
   });
 
   test('saving a blank note removes that day note only', () async {
-    await database.setDayNote(habitId: habitId, day: '2026-11-15', note: 'Keep this');
-    await database.setDayNote(habitId: habitId, day: '2026-11-16', note: 'Remove this');
+    await database.setDayNote(day: '2026-11-15', note: 'Keep this');
+    await database.setDayNote(day: '2026-11-16', note: 'Remove this');
 
-    await database.setDayNote(habitId: habitId, day: '2026-11-16', note: '  ');
+    await database.setDayNote(day: '2026-11-16', note: '  ');
 
-    expect(await database.getDayNote(habitId: habitId, day: '2026-11-15'), 'Keep this');
-    expect(await database.getDayNote(habitId: habitId, day: '2026-11-16'), isNull);
+    expect(await database.getDayNote(day: '2026-11-15'), 'Keep this');
+    expect(await database.getDayNote(day: '2026-11-16'), isNull);
   });
 
   test('completion can be edited and undone without affecting another day', () async {
-    await database.setCompletion(habitId: habitId, day: '2026-11-15', amount: 1);
-    await database.setCompletion(habitId: habitId, day: '2026-11-16', amount: 2);
-    await database.setCompletion(habitId: habitId, day: '2026-11-16', amount: 0);
+    await database.setCompletion(day: '2026-11-15', amount: 1);
+    await database.setCompletion(day: '2026-11-16', amount: 2);
+    await database.setCompletion(day: '2026-11-16', amount: 0);
 
     final rows = await database.select(database.completions).get();
     expect(rows, hasLength(1));
