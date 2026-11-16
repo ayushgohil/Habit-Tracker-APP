@@ -28,6 +28,10 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
   int _intervalDays = 2;
   int _periodTarget = 1;
   bool _twoDayRule = false;
+  bool _reminderEnabled = false;
+  TimeOfDay _reminderTime = const TimeOfDay(hour: 20, minute: 0);
+  bool _partialNudgeEnabled = false;
+  TimeOfDay _partialNudgeTime = const TimeOfDay(hour: 21, minute: 0);
   bool _saving = false;
 
   @override
@@ -47,6 +51,10 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
     _intervalDays = h.intervalDays;
     _periodTarget = h.periodTarget;
     _twoDayRule = h.twoDayRule;
+    _reminderEnabled = h.reminderEnabled;
+    _reminderTime = TimeOfDay(hour: h.reminderHour, minute: h.reminderMinute);
+    _partialNudgeEnabled = h.partialNudgeEnabled;
+    _partialNudgeTime = TimeOfDay(hour: h.partialNudgeHour, minute: h.partialNudgeMinute);
   }
 
   @override
@@ -60,6 +68,14 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
   int _positive(TextEditingController c, int fallback, int max) {
     final value = int.tryParse(c.text) ?? fallback;
     return value.clamp(1, max);
+  }
+
+  Future<void> _pickReminderTime({required bool nudge}) async {
+    final picked = await showTimePicker(context: context, initialTime: nudge ? _partialNudgeTime : _reminderTime);
+    if (picked == null || !mounted) return;
+    setState(() {
+      if (nudge) { _partialNudgeTime = picked; } else { _reminderTime = picked; }
+    });
   }
 
   Future<void> _save() async {
@@ -98,6 +114,12 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
         taskType: _taskType,
         twoDayRule: _twoDayRule,
         targetDurationSeconds: _positive(_duration, 30, 1440) * 60,
+        reminderEnabled: _reminderEnabled,
+        reminderHour: _reminderTime.hour,
+        reminderMinute: _reminderTime.minute,
+        partialNudgeEnabled: _partialNudgeEnabled,
+        partialNudgeHour: _partialNudgeTime.hour,
+        partialNudgeMinute: _partialNudgeTime.minute,
       );
     } else {
       await actions.edit(
@@ -110,6 +132,12 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
         taskType: _taskType,
         twoDayRule: _twoDayRule,
         targetDurationSeconds: _positive(_duration, 30, 1440) * 60,
+        reminderEnabled: _reminderEnabled,
+        reminderHour: _reminderTime.hour,
+        reminderMinute: _reminderTime.minute,
+        partialNudgeEnabled: _partialNudgeEnabled,
+        partialNudgeHour: _partialNudgeTime.hour,
+        partialNudgeMinute: _partialNudgeTime.minute,
       );
     }
     if (mounted) Navigator.of(context).pop();
@@ -226,6 +254,23 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
               max: 366,
               onChanged: (v) => setState(() => _periodTarget = v),
             ),
+          const _Label('Reminders'),
+          SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('Daily reminder'),
+            subtitle: const Text('Remind me if this habit is still incomplete'),
+            value: _reminderEnabled, onChanged: (value) => setState(() => _reminderEnabled = value)),
+          if (_reminderEnabled)
+            ListTile(contentPadding: EdgeInsets.zero, title: const Text('Reminder time'),
+              subtitle: Text(_reminderTime.format(context)), trailing: const Icon(Icons.access_time_rounded),
+              onTap: () => _pickReminderTime(nudge: false)),
+          if (_reminderEnabled) ...[
+            SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('Partial-progress nudge'),
+              subtitle: const Text('A later nudge if you have started but not finished'),
+              value: _partialNudgeEnabled, onChanged: (value) => setState(() => _partialNudgeEnabled = value)),
+            if (_partialNudgeEnabled)
+              ListTile(contentPadding: EdgeInsets.zero, title: const Text('Nudge time'),
+                subtitle: Text(_partialNudgeTime.format(context)), trailing: const Icon(Icons.access_time_rounded),
+                onTap: () => _pickReminderTime(nudge: true)),
+          ],
           const _Label('Icon'),
           Wrap(
             spacing: 10,
