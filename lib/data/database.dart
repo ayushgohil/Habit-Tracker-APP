@@ -7,6 +7,15 @@ import 'package:path_provider/path_provider.dart';
 
 part 'database.g.dart';
 
+class HabitDayNotes extends Table {
+  IntColumn get habitId => integer().references(Habits, #id, onDelete: KeyAction.cascade)();
+  TextColumn get day => text().withLength(min: 10, max: 10)();
+  TextColumn get note => text()();
+  @override
+  Set<Column> get primaryKey => {habitId, day};
+}
+
+
 class Habits extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text().withLength(min: 1, max: 60)();
@@ -57,14 +66,14 @@ class Completions extends Table {
       ];
 }
 
-@DriftDatabase(tables: [Habits, Completions])
+@DriftDatabase(tables: [Habits, Completions, HabitDayNotes])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -76,6 +85,9 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(habits, habits.periodTarget);
             await m.addColumn(habits, habits.targetDurationSeconds);
             await m.addColumn(habits, habits.pausedAt);
+          }
+          if (from < 3) {
+            await m.createTable(habitDayNotes);
           }
         },
         beforeOpen: (details) async {
@@ -135,6 +147,23 @@ class AppDatabase extends _$AppDatabase {
   }
 
   /// Sets the progress of [habitId] on [day]. An [amount] of 0 clears it.
+  Future<String?> getDayNote({required int habitId, required String day}) async {
+    final row = await (select(habitDayNotes)..where((n) => n.habitId.equals(habitId) & n.day.equals(day))).getSingleOrNull();
+    return row?.note;
+  }
+
+  Future<void> setDayNote({required int habitId, required String day, required String note}) async {
+    final cleaned = note.trim();
+    if (cleaned.isEmpty) {
+      await (delete(habitDayNotes)..where((n) => n.habitId.equals(habitId) & n.day.equals(day))).go();
+      return;
+    }
+    await into(habitDayNotes).insert(
+      HabitDayNotesCompanion.insert(habitId: habitId, day: day, note: cleaned),
+      onConflict: DoUpdate((old) => HabitDayNotesCompanion(note: Value(cleaned)), target: [habitDayNotes.habitId, habitDayNotes.day]),
+    );
+  }
+
   Future<void> setCompletion({
     required int habitId,
     required String day,
