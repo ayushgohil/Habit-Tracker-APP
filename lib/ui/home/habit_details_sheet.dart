@@ -126,7 +126,7 @@ Future<void> showHabitDetails(BuildContext context, WidgetRef ref, HabitView vie
                   context: sheetContext,
                   builder: (dialogContext) => AlertDialog(
                     title: const Text('Delete habit?'),
-                    content: Text('"\${habit.name}" and its whole history will be removed. This cannot be undone.'),
+                    content: Text('"${habit.name}" and its whole history will be removed. This cannot be undone.'),
                     actions: [
                       TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Cancel')),
                       TextButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('Delete')),
