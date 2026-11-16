@@ -78,10 +78,10 @@ class HabitActions {
       setAmount(view, day, view.isDone ? 0 : view.countToday + 1);
   Future<void> setTimedProgress(HabitView view, DateTime day, int seconds) =>
       setAmount(view, day, seconds);
-  Future<String?> loadNote(int habitId, DateTime day) =>
-      _db.getDayNote(habitId: habitId, day: dayKey(day));
-  Future<void> saveNote(int habitId, DateTime day, String note) =>
-      _db.setDayNote(habitId: habitId, day: dayKey(day), note: note);
+  Future<String?> loadNote(DateTime day) =>
+      _db.getDayNote(day: dayKey(day));
+  Future<void> saveNote(DateTime day, String note) =>
+      _db.setDayNote(day: dayKey(day), note: note);
   Future<int> add({
     required String name, required String iconKey, required int colorValue,
     required Schedule schedule, required int dailyTarget, required int sortOrder,
