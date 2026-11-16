@@ -69,6 +69,39 @@ class HomeScreen extends ConsumerWidget {
     HapticFeedback.selectionClick();
   }
 
+  Future<void> _editDayNote(BuildContext context, WidgetRef ref, DateTime day) async {
+    final actions = ref.read(habitActionsProvider);
+    final existing = await actions.loadNote(day);
+    if (!context.mounted) return;
+    final controller = TextEditingController(text: existing ?? '');
+    final note = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Note · ${DateFormat('d MMM yyyy').format(day)}'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          minLines: 3,
+          maxLines: 6,
+          maxLength: 1000,
+          decoration: const InputDecoration(hintText: 'What happened today?'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(controller.text),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (note != null) await actions.saveNote(day, note);
+  }
+
   bool _allDueDone(List<HabitView> views, DateTime day) {
     final due = views.where((view) => view.schedule.isDue(day)).toList();
     return due.isNotEmpty && due.every((view) => view.isDone);
@@ -97,6 +130,7 @@ class HomeScreen extends ConsumerWidget {
                 views: viewsAsync.valueOrNull,
                 onPickDay: () => _pickDay(context, ref, selectedDay),
                 onToday: () => ref.read(todayProvider.notifier).state = startOfDay(DateTime.now()),
+                onNote: () => _editDayNote(context, ref, selectedDay),
               ),
             ),
             ...viewsAsync.when<List<Widget>>(
@@ -167,11 +201,12 @@ class HomeScreen extends ConsumerWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.day, required this.views, required this.onPickDay, required this.onToday});
+  const _Header({required this.day, required this.views, required this.onPickDay, required this.onToday, required this.onNote});
   final DateTime day;
   final List<HabitView>? views;
   final VoidCallback onPickDay;
   final VoidCallback onToday;
+  final VoidCallback onNote;
 
   @override
   Widget build(BuildContext context) {
@@ -190,6 +225,11 @@ class _Header extends StatelessWidget {
               const SizedBox(width: 6),
               Text('EMBER', style: textTheme.labelLarge?.copyWith(color: EmberColors.ember, letterSpacing: 3, fontWeight: FontWeight.w700)),
               const Spacer(),
+              IconButton(
+                tooltip: 'Daily note',
+                onPressed: onNote,
+                icon: const Icon(Icons.note_alt_outlined),
+              ),
               if (!isToday) TextButton(onPressed: onToday, child: const Text('Today')),
             ],
           ),
