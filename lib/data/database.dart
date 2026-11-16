@@ -8,13 +8,12 @@ import 'package:path_provider/path_provider.dart';
 part 'database.g.dart';
 
 class DayNotes extends Table {
-  IntColumn get habitId => integer().references(Habits, #id, onDelete: KeyAction.cascade)();
   TextColumn get day => text().withLength(min: 10, max: 10)();
   TextColumn get note => text()();
-  @override
-  Set<Column> get primaryKey => {habitId, day};
-}
 
+  @override
+  Set<Column> get primaryKey => {day};
+}
 
 class Habits extends Table {
   IntColumn get id => integer().autoIncrement()();
