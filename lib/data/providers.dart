@@ -44,7 +44,10 @@ final habitViewsProvider = Provider<AsyncValue<List<HabitView>>>((ref) {
   }
   final selectedKey = dayKey(selectedDay);
   return AsyncValue.data([
-    for (final habit in habits) _view(habit, byHabit[habit.id] ?? const {}, selectedDay, selectedKey),
+    for (final habit in habits)
+      // A habit doesn't exist on days before it started.
+      if (hasStartedBy(habit.createdAt, selectedDay))
+        _view(habit, byHabit[habit.id] ?? const {}, selectedDay, selectedKey),
   ]);
 });
 
@@ -90,8 +93,10 @@ class HabitActions {
     int targetDurationSeconds = 1800,
     bool reminderEnabled = false, int reminderHour = 20, int reminderMinute = 0,
     bool partialNudgeEnabled = false, int partialNudgeHour = 21, int partialNudgeMinute = 0,
+    DateTime? startDate,
   }) => _db.insertHabit(HabitsCompanion.insert(
     name: name, iconKey: iconKey, colorValue: colorValue,
+    createdAt: startDate == null ? const Value.absent() : Value(startDate),
     scheduleType: Value(schedule.type.index), weekdayMask: Value(schedule.weekdayMask),
     timesPerWeek: Value(schedule.timesPerWeek), dailyTarget: Value(dailyTarget),
     sortOrder: Value(sortOrder), taskType: Value(taskType.index),
@@ -106,8 +111,10 @@ class HabitActions {
     required bool twoDayRule, required int targetDurationSeconds,
     required bool reminderEnabled, required int reminderHour, required int reminderMinute,
     required bool partialNudgeEnabled, required int partialNudgeHour, required int partialNudgeMinute,
+    DateTime? startDate,
   }) => _db.updateHabit(id, HabitsCompanion(
     name: Value(name), iconKey: Value(iconKey), colorValue: Value(colorValue),
+    createdAt: startDate == null ? const Value.absent() : Value(startDate),
     scheduleType: Value(schedule.type.index), weekdayMask: Value(schedule.weekdayMask),
     timesPerWeek: Value(schedule.timesPerWeek), intervalDays: Value(schedule.intervalDays),
     periodTarget: Value(schedule.periodTarget), dailyTarget: Value(dailyTarget),

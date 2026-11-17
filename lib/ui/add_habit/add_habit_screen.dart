@@ -1,6 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
+import '../../core/day.dart';
 import '../../core/habit_icons.dart';
 import '../../core/streak.dart';
 import '../../data/database.dart';
@@ -35,11 +37,15 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
   TimeOfDay _partialNudgeTime = const TimeOfDay(hour: 21, minute: 0);
   bool _saving = false;
 
+  /// The first day the habit exists. Stored as the habit's creation date.
+  DateTime _startDate = startOfDay(DateTime.now());
+
   @override
   void initState() {
     super.initState();
     final h = widget.habit;
     if (h == null) return;
+    _startDate = startOfDay(h.createdAt);
     _name.text = h.name;
     _target.text = h.dailyTarget.toString();
     _duration.text = (h.targetDurationSeconds ~/ 60).toString();
@@ -79,6 +85,18 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
     });
   }
 
+  Future<void> _pickStartDate() async {
+    final now = startOfDay(DateTime.now());
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _startDate,
+      firstDate: DateTime(now.year - 10),
+      lastDate: DateTime(now.year + 1, now.month, now.day),
+      helpText: 'Habit start date',
+    );
+    if (picked != null) setState(() => _startDate = startOfDay(picked));
+  }
+
   Future<void> _save() async {
     final name = _name.text.trim();
     if (name.isEmpty) {
@@ -108,7 +126,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
       timesPerWeek: _timesPerWeek,
       intervalDays: _intervalDays,
       periodTarget: _periodTarget,
-      anchorDate: widget.habit?.createdAt ?? DateTime.now(),
+      anchorDate: _startDate,
     );
     final actions = ref.read(habitActionsProvider);
     late final int savedHabitId;
@@ -130,6 +148,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
         partialNudgeEnabled: _partialNudgeEnabled,
         partialNudgeHour: _partialNudgeTime.hour,
         partialNudgeMinute: _partialNudgeTime.minute,
+        startDate: _startDate,
       );
     } else {
       savedHabitId = widget.habit!.id;
@@ -149,6 +168,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
         partialNudgeEnabled: _partialNudgeEnabled,
         partialNudgeHour: _partialNudgeTime.hour,
         partialNudgeMinute: _partialNudgeTime.minute,
+        startDate: _startDate,
       );
     }
     final db = ref.read(databaseProvider);
@@ -172,6 +192,14 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
             autofocus: !editing,
             maxLength: 60,
             decoration: const InputDecoration(labelText: 'Habit name'),
+          ),
+          const _Label('Starts on'),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.event_rounded),
+            title: Text(DateFormat('EEEE, d MMM yyyy').format(_startDate)),
+            subtitle: const Text('Shown from this day on. Pick an earlier day to log past days.'),
+            onTap: _pickStartDate,
           ),
           const _Label('Task type'),
           DropdownButtonFormField<HabitTaskType>(
