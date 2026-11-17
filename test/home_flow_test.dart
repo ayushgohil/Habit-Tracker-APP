@@ -5,6 +5,7 @@ import 'package:ember/data/providers.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Lets real async work (the in-memory database) run, then redraws.
 Future<void> settle(WidgetTester tester) async {
