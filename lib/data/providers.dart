@@ -43,7 +43,10 @@ final habitViewsProvider = Provider<AsyncValue<List<HabitView>>>((ref) {
   }
   final selectedKey = dayKey(selectedDay);
   return AsyncValue.data([
-    for (final habit in habits) _view(habit, byHabit[habit.id] ?? const {}, selectedDay, selectedKey),
+    for (final habit in habits)
+      // A habit doesn't exist on days before it started.
+      if (hasStartedBy(habit.createdAt, selectedDay))
+        _view(habit, byHabit[habit.id] ?? const {}, selectedDay, selectedKey),
   ]);
 });
 
@@ -86,9 +89,10 @@ class HabitActions {
     required String name, required String iconKey, required int colorValue,
     required Schedule schedule, required int dailyTarget, required int sortOrder,
     HabitTaskType taskType = HabitTaskType.normal, bool twoDayRule = false,
-    int targetDurationSeconds = 1800,
+    int targetDurationSeconds = 1800, DateTime? startDate,
   }) => _db.insertHabit(HabitsCompanion.insert(
     name: name, iconKey: iconKey, colorValue: colorValue,
+    createdAt: startDate == null ? const Value.absent() : Value(startDate),
     scheduleType: Value(schedule.type.index), weekdayMask: Value(schedule.weekdayMask),
     timesPerWeek: Value(schedule.timesPerWeek), dailyTarget: Value(dailyTarget),
     sortOrder: Value(sortOrder), taskType: Value(taskType.index),
@@ -99,8 +103,10 @@ class HabitActions {
     required int id, required String name, required String iconKey, required int colorValue,
     required Schedule schedule, required int dailyTarget, required HabitTaskType taskType,
     required bool twoDayRule, required int targetDurationSeconds,
+    DateTime? startDate,
   }) => _db.updateHabit(id, HabitsCompanion(
     name: Value(name), iconKey: Value(iconKey), colorValue: Value(colorValue),
+    createdAt: startDate == null ? const Value.absent() : Value(startDate),
     scheduleType: Value(schedule.type.index), weekdayMask: Value(schedule.weekdayMask),
     timesPerWeek: Value(schedule.timesPerWeek), intervalDays: Value(schedule.intervalDays),
     periodTarget: Value(schedule.periodTarget), dailyTarget: Value(dailyTarget),

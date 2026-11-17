@@ -5,10 +5,13 @@ import 'package:intl/intl.dart';
 
 import '../../core/day.dart';
 import '../../core/habit_icons.dart';
+import '../../core/habit_order.dart';
 import '../../core/streak.dart';
 import '../../data/providers.dart';
 import '../../theme/ember_theme.dart';
 import '../add_habit/add_habit_screen.dart';
+import '../common/text_dialogs.dart';
+import '../library/habit_library_screen.dart';
 import 'habit_details_sheet.dart';
 import 'habit_tile.dart';
 
@@ -17,6 +20,10 @@ class HomeScreen extends ConsumerWidget {
 
   void _openAddHabit(BuildContext context) {
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const AddHabitScreen()));
+  }
+
+  void _openLibrary(BuildContext context) {
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const HabitLibraryScreen()));
   }
 
   Future<void> _pickDay(BuildContext context, WidgetRef ref, DateTime selected) async {
@@ -34,35 +41,30 @@ class HomeScreen extends ConsumerWidget {
   Future<void> _handleHabitTap(BuildContext context, WidgetRef ref, HabitView view, DateTime day) async {
     final actions = ref.read(habitActionsProvider);
     final previousAmount = view.countToday;
+    final String message;
     if (view.habit.taskType != HabitTaskType.timed.index) {
       await actions.tap(view, day);
+      message = view.isDone ? '${view.habit.name} marked incomplete' : '${view.habit.name} logged';
     } else {
-      final controller = TextEditingController();
-      final minutes = await showDialog<int>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: Text('Log time · ${view.habit.name}'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'Minutes completed', suffixText: 'min'),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Cancel')),
-            FilledButton(onPressed: () => Navigator.of(dialogContext).pop(int.tryParse(controller.text)), child: const Text('Save')),
-          ],
-        ),
+      final minutes = await showLogTimeDialog(
+        context,
+        habitName: view.habit.name,
+        canClear: previousAmount > 0,
       );
-      controller.dispose();
-      if (minutes == null || minutes <= 0 || !context.mounted) return;
-      await actions.setTimedProgress(view, day, previousAmount + minutes * 60);
+      if (minutes == null || !context.mounted) return;
+      if (minutes == clearLoggedTime) {
+        await actions.setTimedProgress(view, day, 0);
+        message = '${view.habit.name} time cleared';
+      } else {
+        await actions.setTimedProgress(view, day, previousAmount + minutes * 60);
+        message = '${view.habit.name}: $minutes min logged';
+      }
     }
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(view.isDone ? '${view.habit.name} marked incomplete' : '${view.habit.name} logged'),
+        content: Text(message),
         action: SnackBarAction(label: 'Undo', onPressed: () => actions.setAmount(view, day, previousAmount)),
       ),
     );
@@ -73,32 +75,12 @@ class HomeScreen extends ConsumerWidget {
     final actions = ref.read(habitActionsProvider);
     final existing = await actions.loadNote(day);
     if (!context.mounted) return;
-    final controller = TextEditingController(text: existing ?? '');
-    final note = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text('Note · ${DateFormat('d MMM yyyy').format(day)}'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          minLines: 3,
-          maxLines: 6,
-          maxLength: 1000,
-          decoration: const InputDecoration(hintText: 'What happened today?'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(controller.text),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
+    final note = await showNoteDialog(
+      context,
+      title: 'Note · ${DateFormat('d MMM yyyy').format(day)}',
+      initialText: existing ?? '',
+      hintText: 'What happened today?',
     );
-    controller.dispose();
     if (note != null) await actions.saveNote(day, note);
   }
 
@@ -131,11 +113,22 @@ class HomeScreen extends ConsumerWidget {
                 onPickDay: () => _pickDay(context, ref, selectedDay),
                 onToday: () => ref.read(todayProvider.notifier).state = startOfDay(DateTime.now()),
                 onNote: () => _editDayNote(context, ref, selectedDay),
+                onLibrary: () => _openLibrary(context),
               ),
             ),
             ...viewsAsync.when<List<Widget>>(
               data: (views) {
-                if (views.isEmpty) return [_EmptyState(onAdd: () => _openAddHabit(context))];
+                if (views.isEmpty) {
+                  return [
+                    _EmptyState(
+                      // Habits only exist from their start date, so an empty
+                      // past day doesn't mean the person has no habits.
+                      pastDay: dayKey(selectedDay) != dayKey(DateTime.now()),
+                      onAdd: () => _openAddHabit(context),
+                      onToday: () => ref.read(todayProvider.notifier).state = startOfDay(DateTime.now()),
+                    ),
+                  ];
+                }
                 return [
                   SliverToBoxAdapter(child: _GoldState(visible: _allDueDone(views, selectedDay))),
                   SliverToBoxAdapter(
@@ -201,12 +194,13 @@ class HomeScreen extends ConsumerWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.day, required this.views, required this.onPickDay, required this.onToday, required this.onNote});
+  const _Header({required this.day, required this.views, required this.onPickDay, required this.onToday, required this.onNote, required this.onLibrary});
   final DateTime day;
   final List<HabitView>? views;
   final VoidCallback onPickDay;
   final VoidCallback onToday;
   final VoidCallback onNote;
+  final VoidCallback onLibrary;
 
   @override
   Widget build(BuildContext context) {
@@ -229,6 +223,11 @@ class _Header extends StatelessWidget {
                 tooltip: 'Daily note',
                 onPressed: onNote,
                 icon: const Icon(Icons.note_alt_outlined),
+              ),
+              IconButton(
+                tooltip: 'Habit library',
+                onPressed: onLibrary,
+                icon: const Icon(Icons.inventory_2_outlined),
               ),
               if (!isToday) TextButton(onPressed: onToday, child: const Text('Today')),
             ],
@@ -334,8 +333,12 @@ class _UpNext extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          DecoratedBox(
-            decoration: BoxDecoration(color: EmberColors.surface, borderRadius: BorderRadius.circular(18)),
+          // A Material (not a coloured DecoratedBox) so the ListTiles can paint
+          // their tap ripple instead of having it hidden behind the background.
+          Material(
+            color: EmberColors.surface,
+            borderRadius: BorderRadius.circular(18),
+            clipBehavior: Clip.antiAlias,
             child: ReorderableListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -345,7 +348,20 @@ class _UpNext extends StatelessWidget {
                 final moved = [...ordered];
                 final item = moved.removeAt(oldIndex);
                 moved.insert(newIndex, item);
-                onReorder(moved.map((v) => v.habit.id).toList());
+                // Only reorder inside the dragged habit's own group, so the
+                // pending-first display order never leaks into the saved order.
+                final itemIsPending = item.schedule.isDue(day) && !item.isDone;
+                bool isPending(HabitView v) => v.schedule.isDue(day) && !v.isDone;
+                onReorder(
+                  reorderWithinGroup(
+                    persisted: views.map((v) => v.habit.id).toList(),
+                    displayedAfterMove: moved.map((v) => v.habit.id).toList(),
+                    group: {
+                      for (final v in views)
+                        if (isPending(v) == itemIsPending) v.habit.id,
+                    },
+                  ),
+                );
                 HapticFeedback.selectionClick();
               },
               itemBuilder: (context, index) {
@@ -386,8 +402,10 @@ class _UpNext extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.onAdd});
+  const _EmptyState({required this.pastDay, required this.onAdd, required this.onToday});
+  final bool pastDay;
   final VoidCallback onAdd;
+  final VoidCallback onToday;
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -401,12 +419,19 @@ class _EmptyState extends StatelessWidget {
             children: [
               const Icon(Icons.local_fire_department_rounded, size: 56, color: EmberColors.ember),
               const SizedBox(height: 16),
-              Text('Light your first ember', style: textTheme.titleLarge),
+              Text(pastDay ? 'No habits on this day' : 'Light your first ember', style: textTheme.titleLarge),
               const SizedBox(height: 8),
-              Text('Add a habit and keep it burning every day.', textAlign: TextAlign.center,
+              Text(
+                  pastDay
+                      ? 'Your habits start on a later day. Go back to today to log them.'
+                      : 'Add a habit and keep it burning every day.',
+                  textAlign: TextAlign.center,
                   style: textTheme.bodyMedium?.copyWith(color: EmberColors.textMuted)),
               const SizedBox(height: 24),
-              FilledButton(onPressed: onAdd, child: const Text('Add a habit')),
+              if (pastDay)
+                FilledButton(onPressed: onToday, child: const Text('Back to today'))
+              else
+                FilledButton(onPressed: onAdd, child: const Text('Add a habit')),
             ],
           ),
         ),

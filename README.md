@@ -10,12 +10,15 @@ your own device. Optional daily backup to your own Google Drive is planned.
 
 ## What works today
 
-- Ring-grid home screen with a selectable date, per-day journal note, undo action, and a reorderable Up Next list
-- Gold completion celebration with animated reveal and haptic feedback
-- Ring-grid home screen: tap to log, long-press for details, archive or delete
-- Habit schedules: every day, specific weekdays, or N times per week
+- Ring-grid home screen: tap to log, long-press for details, edit, pause, archive or delete
+- Selectable date for logging past days, a per-day journal note, and undo
+- Reorderable Up Next list, and a gold card when everything due today is done
+- Habit library for reordering, and for resuming paused or restoring archived habits
+- Task types: normal, negative (with an optional 2-day rule) and timed
+- Schedules: every day, specific weekdays, N times a week, every N days, and
+  weekly, fortnightly, monthly or yearly goals
 - Habits that need several taps a day (for example 8 glasses of water)
-- Streaks for daily, weekday and weekly habits
+- Current and best streak and completion rate for every schedule
 - Everything stored locally in SQLite via [Drift](https://drift.simonbinder.eu)
 
 ## Getting started
