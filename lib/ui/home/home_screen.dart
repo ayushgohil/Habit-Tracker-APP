@@ -165,7 +165,17 @@ class HomeScreen extends ConsumerWidget {
             ),
             ...viewsAsync.when<List<Widget>>(
               data: (views) {
-                if (views.isEmpty) return [_EmptyState(onAdd: () => _openAddHabit(context))];
+                if (views.isEmpty) {
+                  return [
+                    _EmptyState(
+                      // Habits only exist from their start date, so an empty
+                      // past day doesn't mean the person has no habits.
+                      pastDay: dayKey(selectedDay) != dayKey(DateTime.now()),
+                      onAdd: () => _openAddHabit(context),
+                      onToday: () => ref.read(todayProvider.notifier).state = startOfDay(DateTime.now()),
+                    ),
+                  ];
+                }
                 return [
                   SliverToBoxAdapter(child: _GoldState(visible: _allDueDone(views, selectedDay))),
                   SliverToBoxAdapter(
@@ -370,8 +380,12 @@ class _UpNext extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          DecoratedBox(
-            decoration: BoxDecoration(color: EmberColors.surface, borderRadius: BorderRadius.circular(18)),
+          // A Material (not a coloured DecoratedBox) so the ListTiles can paint
+          // their tap ripple instead of having it hidden behind the background.
+          Material(
+            color: EmberColors.surface,
+            borderRadius: BorderRadius.circular(18),
+            clipBehavior: Clip.antiAlias,
             child: ReorderableListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -435,8 +449,10 @@ class _UpNext extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.onAdd});
+  const _EmptyState({required this.pastDay, required this.onAdd, required this.onToday});
+  final bool pastDay;
   final VoidCallback onAdd;
+  final VoidCallback onToday;
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -450,12 +466,19 @@ class _EmptyState extends StatelessWidget {
             children: [
               const Icon(Icons.local_fire_department_rounded, size: 56, color: EmberColors.ember),
               const SizedBox(height: 16),
-              Text('Light your first ember', style: textTheme.titleLarge),
+              Text(pastDay ? 'No habits on this day' : 'Light your first ember', style: textTheme.titleLarge),
               const SizedBox(height: 8),
-              Text('Add a habit and keep it burning every day.', textAlign: TextAlign.center,
+              Text(
+                  pastDay
+                      ? 'Your habits start on a later day. Go back to today to log them.'
+                      : 'Add a habit and keep it burning every day.',
+                  textAlign: TextAlign.center,
                   style: textTheme.bodyMedium?.copyWith(color: EmberColors.textMuted)),
               const SizedBox(height: 24),
-              FilledButton(onPressed: onAdd, child: const Text('Add a habit')),
+              if (pastDay)
+                FilledButton(onPressed: onToday, child: const Text('Back to today'))
+              else
+                FilledButton(onPressed: onAdd, child: const Text('Add a habit')),
             ],
           ),
         ),
