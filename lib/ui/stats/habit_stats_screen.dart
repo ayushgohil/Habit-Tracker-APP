@@ -118,7 +118,7 @@ class _StatsGrid extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       mainAxisSpacing: 12,
       crossAxisSpacing: 12,
-      childAspectRatio: 2.1,
+      childAspectRatio: 1.7,
       children: [
         for (final t in tiles)
           Container(
