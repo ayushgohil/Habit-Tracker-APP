@@ -33,22 +33,40 @@ class HabitNotificationService {
     _initialized = true;
   }
 
+  // Reminders are a convenience. A failure here (a missing plugin, a denied
+  // permission, an unknown time zone) must never stop a habit from being
+  // saved, paused, archived or deleted, so every public call below catches and
+  // logs its own errors instead of throwing into the caller.
+  Future<void> _safely(Future<void> Function() action) async {
+    try {
+      await action();
+    } catch (error) {
+      debugPrint('Ember reminders: $error');
+    }
+  }
+
   Future<bool> requestPermission() async {
-    await initialize();
-    final android = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-    return await android?.requestNotificationsPermission() ?? false;
+    try {
+      await initialize();
+      final android = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      return await android?.requestNotificationsPermission() ?? false;
+    } catch (error) {
+      debugPrint('Ember reminders: $error');
+      return false;
+    }
   }
 
   Future<void> syncAll(List<Habit> habits) async {
-    await initialize();
     for (final habit in habits) {
       await syncHabit(habit);
     }
   }
 
-  Future<void> syncHabit(Habit habit) async {
+  Future<void> syncHabit(Habit habit) => _safely(() => _syncHabit(habit));
+
+  Future<void> _syncHabit(Habit habit) async {
     await initialize();
-    await cancelHabit(habit.id);
+    await _cancelHabit(habit.id);
     if (!habit.reminderEnabled || habit.archivedAt != null || habit.pausedAt != null) return;
 
     final weekdays = habit.scheduleType == 1
@@ -120,7 +138,9 @@ class HabitNotificationService {
     );
   }
 
-  Future<void> cancelHabit(int habitId) async {
+  Future<void> cancelHabit(int habitId) => _safely(() => _cancelHabit(habitId));
+
+  Future<void> _cancelHabit(int habitId) async {
     await initialize();
     for (var day = 0; day <= 7; day++) {
       await _plugin.cancel(_notificationId(habitId, day, false));
