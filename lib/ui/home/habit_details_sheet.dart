@@ -7,6 +7,7 @@ import '../../data/providers.dart';
 import '../../theme/ember_theme.dart';
 import '../add_habit/add_habit_screen.dart';
 import '../common/text_dialogs.dart';
+import '../stats/habit_stats_screen.dart';
 
 Future<void> showHabitDetails(BuildContext context, WidgetRef ref, HabitView view, DateTime day) {
   final actions = ref.read(habitActionsProvider);
@@ -58,6 +59,16 @@ Future<void> showHabitDetails(BuildContext context, WidgetRef ref, HabitView vie
               ],
             ),
             const SizedBox(height: 12),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.insights_rounded),
+              title: const Text('Stats & history'),
+              subtitle: const Text('Calendar, streaks and charts'),
+              onTap: () async {
+                Navigator.of(sheetContext).pop();
+                await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => HabitStatsScreen(habitId: habit.id)));
+              },
+            ),
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.note_alt_outlined),

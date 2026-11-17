@@ -15,7 +15,8 @@ final todayProvider = StateProvider<DateTime>((ref) => startOfDay(DateTime.now()
 final habitsProvider = StreamProvider<List<Habit>>((ref) => ref.watch(databaseProvider).watchActiveHabits());
 final pausedHabitsProvider = StreamProvider<List<Habit>>((ref) => ref.watch(databaseProvider).watchPausedHabits());
 final archivedHabitsProvider = StreamProvider<List<Habit>>((ref) => ref.watch(databaseProvider).watchArchivedHabits());
-final completionsProvider = StreamProvider<List<Completion>>((ref) => ref.watch(databaseProvider).watchAllCompletions());
+final allHabitsProvider = StreamProvider<List<Habit>>((ref) => ref.watch(databaseProvider).watchAllHabits());
+final completionsProvider =StreamProvider<List<Completion>>((ref) => ref.watch(databaseProvider).watchAllCompletions());
 
 class HabitView {
   const HabitView({required this.habit, required this.countToday, required this.stats, required this.schedule});
@@ -51,17 +52,71 @@ final habitViewsProvider = Provider<AsyncValue<List<HabitView>>>((ref) {
   ]);
 });
 
-HabitView _view(Habit habit, Map<String, int> amounts, DateTime day, String key) {
-  final target = habit.taskType == HabitTaskType.timed.index ? habit.targetDurationSeconds : habit.dailyTarget;
+/// What counts as "done" for a habit on one day.
+int targetForHabit(Habit habit) =>
+    habit.taskType == HabitTaskType.timed.index ? habit.targetDurationSeconds : habit.dailyTarget;
+
+Schedule scheduleForHabit(Habit habit) => Schedule(
+      type: ScheduleType.values[habit.scheduleType],
+      weekdayMask: habit.weekdayMask,
+      timesPerWeek: habit.timesPerWeek,
+      intervalDays: habit.intervalDays,
+      periodTarget: habit.periodTarget,
+      anchorDate: habit.createdAt,
+    );
+
+/// Everything the stats screen needs about one habit, as of [today].
+class HabitHistory {
+  const HabitHistory({
+    required this.habit,
+    required this.amounts,
+    required this.stats,
+    required this.schedule,
+    required this.target,
+  });
+  final Habit habit;
+  final Map<String, int> amounts;
+  final HabitStats stats;
+  final Schedule schedule;
+  final int target;
+
+  Set<String> get doneDays => {for (final e in amounts.entries) if (e.value >= target) e.key};
+  int get totalDone => doneDays.length;
+}
+
+HabitHistory buildHistory(Habit habit, Map<String, int> amounts, DateTime today) {
+  final target = targetForHabit(habit);
+  final schedule = scheduleForHabit(habit);
   final doneDays = <String>{for (final e in amounts.entries) if (e.value >= target) e.key};
-  final schedule = Schedule(
-    type: ScheduleType.values[habit.scheduleType],
-    weekdayMask: habit.weekdayMask,
-    timesPerWeek: habit.timesPerWeek,
-    intervalDays: habit.intervalDays,
-    periodTarget: habit.periodTarget,
-    anchorDate: habit.createdAt,
+  final stats = calculateHabitStats(
+    schedule: schedule,
+    doneDays: doneDays,
+    createdAt: habit.createdAt,
+    today: today,
+    taskType: HabitTaskType.values[habit.taskType],
+    twoDayRule: habit.twoDayRule,
   );
+  return HabitHistory(habit: habit, amounts: amounts, stats: stats, schedule: schedule, target: target);
+}
+
+/// Live history for one habit (by id). Null while loading or if it is gone.
+final habitHistoryProvider = Provider.family<HabitHistory?, int>((ref, id) {
+  final today = startOfDay(DateTime.now());
+  final habits = ref.watch(allHabitsProvider).valueOrNull;
+  final completions = ref.watch(completionsProvider).valueOrNull;
+  if (habits == null || completions == null) return null;
+  final matches = habits.where((h) => h.id == id);
+  if (matches.isEmpty) return null;
+  final amounts = <String, int>{
+    for (final c in completions) if (c.habitId == id) c.day: c.amount,
+  };
+  return buildHistory(matches.first, amounts, today);
+});
+
+HabitView _view(Habit habit, Map<String, int> amounts, DateTime day, String key) {
+  final target = targetForHabit(habit);
+  final schedule = scheduleForHabit(habit);
+  final doneDays = <String>{for (final e in amounts.entries) if (e.value >= target) e.key};
   final stats = calculateHabitStats(
     schedule: schedule,
     doneDays: doneDays,
@@ -78,6 +133,9 @@ class HabitActions {
   final AppDatabase _db;
   Future<void> setAmount(HabitView view, DateTime day, int amount) =>
       _db.setCompletion(habitId: view.habit.id, day: dayKey(day), amount: amount);
+  /// Sets what was logged for a habit on any day (used by the calendar).
+  Future<void> setDayAmount(int habitId, DateTime day, int amount) =>
+      _db.setCompletion(habitId: habitId, day: dayKey(day), amount: amount);
   Future<void> tap(HabitView view, DateTime day) =>
       setAmount(view, day, view.isDone ? 0 : view.countToday + 1);
   Future<void> setTimedProgress(HabitView view, DateTime day, int seconds) =>
