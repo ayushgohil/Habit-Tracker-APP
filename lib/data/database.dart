@@ -126,6 +126,8 @@ class AppDatabase extends _$AppDatabase {
   Stream<List<Habit>> watchArchivedHabits() =>
       (select(habits)..where((h) => h.archivedAt.isNotNull())).watch();
 
+  Stream<List<Habit>> watchAllHabits() => select(habits).watch();
+
   Stream<List<Completion>> watchAllCompletions() => select(completions).watch();
 
   Future<int> insertHabit(HabitsCompanion entry) => into(habits).insert(entry);
