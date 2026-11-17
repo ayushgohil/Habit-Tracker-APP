@@ -46,6 +46,12 @@ class Habits extends Table {
   IntColumn get periodTarget => integer().withDefault(const Constant(1))();
   IntColumn get targetDurationSeconds => integer().withDefault(const Constant(1800))();
   DateTimeColumn get pausedAt => dateTime().nullable()();
+  BoolColumn get reminderEnabled => boolean().withDefault(const Constant(false))();
+  IntColumn get reminderHour => integer().withDefault(const Constant(20))();
+  IntColumn get reminderMinute => integer().withDefault(const Constant(0))();
+  BoolColumn get partialNudgeEnabled => boolean().withDefault(const Constant(false))();
+  IntColumn get partialNudgeHour => integer().withDefault(const Constant(21))();
+  IntColumn get partialNudgeMinute => integer().withDefault(const Constant(0))();
 }
 
 class Completions extends Table {
@@ -72,7 +78,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -87,6 +93,14 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 3) {
             await m.createTable(dayNotes);
+          }
+          if (from < 4) {
+            await m.addColumn(habits, habits.reminderEnabled);
+            await m.addColumn(habits, habits.reminderHour);
+            await m.addColumn(habits, habits.reminderMinute);
+            await m.addColumn(habits, habits.partialNudgeEnabled);
+            await m.addColumn(habits, habits.partialNudgeHour);
+            await m.addColumn(habits, habits.partialNudgeMinute);
           }
         },
         beforeOpen: (details) async {

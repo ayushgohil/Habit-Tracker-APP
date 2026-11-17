@@ -47,6 +47,93 @@ jobs:
             flutter create --org com.nextlyr --project-name ember --platforms android .
           fi
 
+      - name: Enable Android core library desugaring
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          app_dir = Path("android/app")
+          gradle_file = app_dir / "build.gradle.kts"
+          kotlin_dsl = gradle_file.exists()
+          if not kotlin_dsl:
+              gradle_file = app_dir / "build.gradle"
+          content = gradle_file.read_text()
+
+          if kotlin_dsl:
+              if "isCoreLibraryDesugaringEnabled" not in content:
+                  content = content.replace(
+                      "compileOptions {",
+                      "compileOptions {\n        isCoreLibraryDesugaringEnabled = true",
+                      1,
+                  )
+              dependency = 'coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")'
+          else:
+              if "coreLibraryDesugaringEnabled" not in content:
+                  content = content.replace(
+                      "compileOptions {",
+                      "compileOptions {\n        coreLibraryDesugaringEnabled true",
+                      1,
+                  )
+              dependency = "coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'"
+
+          if "desugar_jdk_libs" not in content:
+              if "dependencies {" in content:
+                  content = content.replace("dependencies {", "dependencies {\n    " + dependency, 1)
+              else:
+                  content += "\n\ndependencies {\n    " + dependency + "\n}\n"
+
+          gradle_file.write_text(content)
+          print(f"Enabled core library desugaring in {gradle_file}")
+          PY
+
+      - name: Configure Android notification manifest
+        run: |
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          path = Path("android/app/src/main/AndroidManifest.xml")
+          ET.register_namespace("android", "http://schemas.android.com/apk/res/android")
+          android = "{http://schemas.android.com/apk/res/android}"
+          tree = ET.parse(path)
+          root = tree.getroot()
+
+          permissions = [
+              "android.permission.POST_NOTIFICATIONS",
+              "android.permission.RECEIVE_BOOT_COMPLETED",
+              "android.permission.SCHEDULE_EXACT_ALARM",
+              "android.permission.VIBRATE",
+          ]
+          existing = {node.get(android + "name") for node in root.findall("uses-permission")}
+          for permission in permissions:
+              if permission not in existing:
+                  ET.SubElement(root, "uses-permission", {android + "name": permission})
+
+          application = root.find("application")
+          receivers = [
+              ("com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver", []),
+              ("com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver", [
+                  "android.intent.action.BOOT_COMPLETED",
+                  "android.intent.action.MY_PACKAGE_REPLACED",
+                  "android.intent.action.QUICKBOOT_POWERON",
+                  "com.htc.intent.action.QUICKBOOT_POWERON",
+              ]),
+              ("com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver", []),
+          ]
+          for name, actions in receivers:
+              receiver = next((r for r in application.findall("receiver") if r.get(android + "name") == name), None)
+              if receiver is None:
+                  receiver = ET.SubElement(application, "receiver", {
+                      android + "name": name,
+                      android + "exported": "false",
+                  })
+              if actions and receiver.find("intent-filter") is None:
+                  intent_filter = ET.SubElement(receiver, "intent-filter")
+                  for action in actions:
+                      ET.SubElement(intent_filter, "action", {android + "name": action})
+          tree.write(path, encoding="utf-8", xml_declaration=True)
+          PY
+
       - name: Install dependencies
         run: flutter pub get
 

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/day.dart';
 import '../core/streak.dart';
 import 'database.dart';
+import '../notifications/habit_notification_service.dart';
 
 final databaseProvider = Provider<AppDatabase>((ref) {
   final db = AppDatabase();
@@ -89,7 +90,10 @@ class HabitActions {
     required String name, required String iconKey, required int colorValue,
     required Schedule schedule, required int dailyTarget, required int sortOrder,
     HabitTaskType taskType = HabitTaskType.normal, bool twoDayRule = false,
-    int targetDurationSeconds = 1800, DateTime? startDate,
+    int targetDurationSeconds = 1800,
+    bool reminderEnabled = false, int reminderHour = 20, int reminderMinute = 0,
+    bool partialNudgeEnabled = false, int partialNudgeHour = 21, int partialNudgeMinute = 0,
+    DateTime? startDate,
   }) => _db.insertHabit(HabitsCompanion.insert(
     name: name, iconKey: iconKey, colorValue: colorValue,
     createdAt: startDate == null ? const Value.absent() : Value(startDate),
@@ -98,11 +102,15 @@ class HabitActions {
     sortOrder: Value(sortOrder), taskType: Value(taskType.index),
     twoDayRule: Value(twoDayRule), intervalDays: Value(schedule.intervalDays),
     periodTarget: Value(schedule.periodTarget), targetDurationSeconds: Value(targetDurationSeconds),
+    reminderEnabled: Value(reminderEnabled), reminderHour: Value(reminderHour), reminderMinute: Value(reminderMinute),
+    partialNudgeEnabled: Value(partialNudgeEnabled), partialNudgeHour: Value(partialNudgeHour), partialNudgeMinute: Value(partialNudgeMinute),
   ));
   Future<void> edit({
     required int id, required String name, required String iconKey, required int colorValue,
     required Schedule schedule, required int dailyTarget, required HabitTaskType taskType,
     required bool twoDayRule, required int targetDurationSeconds,
+    required bool reminderEnabled, required int reminderHour, required int reminderMinute,
+    required bool partialNudgeEnabled, required int partialNudgeHour, required int partialNudgeMinute,
     DateTime? startDate,
   }) => _db.updateHabit(id, HabitsCompanion(
     name: Value(name), iconKey: Value(iconKey), colorValue: Value(colorValue),
@@ -112,12 +120,41 @@ class HabitActions {
     periodTarget: Value(schedule.periodTarget), dailyTarget: Value(dailyTarget),
     taskType: Value(taskType.index), twoDayRule: Value(twoDayRule),
     targetDurationSeconds: Value(targetDurationSeconds),
+    reminderEnabled: Value(reminderEnabled), reminderHour: Value(reminderHour), reminderMinute: Value(reminderMinute),
+    partialNudgeEnabled: Value(partialNudgeEnabled), partialNudgeHour: Value(partialNudgeHour), partialNudgeMinute: Value(partialNudgeMinute),
   ));
-  Future<void> archive(int id) => _db.archiveHabit(id);
-  Future<void> restore(int id) => _db.restoreHabit(id);
-  Future<void> pause(int id) => _db.pauseHabit(id);
-  Future<void> resume(int id) => _db.resumeHabit(id);
+  Future<void> _syncReminder(int id) async {
+    final habit = await (_db.select(_db.habits)..where((h) => h.id.equals(id))).getSingleOrNull();
+    if (habit == null) {
+      await HabitNotificationService.instance.cancelHabit(id);
+    } else {
+      await HabitNotificationService.instance.syncHabit(habit);
+    }
+  }
+
+  Future<void> archive(int id) async {
+    await _db.archiveHabit(id);
+    await _syncReminder(id);
+  }
+
+  Future<void> restore(int id) async {
+    await _db.restoreHabit(id);
+    await _syncReminder(id);
+  }
+
+  Future<void> pause(int id) async {
+    await _db.pauseHabit(id);
+    await _syncReminder(id);
+  }
+
+  Future<void> resume(int id) async {
+    await _db.resumeHabit(id);
+    await _syncReminder(id);
+  }
   Future<void> reorder(List<int> ids) => _db.reorderHabits(ids);
-  Future<void> delete(int id) => _db.deleteHabit(id);
+  Future<void> delete(int id) async {
+    await _db.deleteHabit(id);
+    await HabitNotificationService.instance.cancelHabit(id);
+  }
 }
 final habitActionsProvider = Provider<HabitActions>((ref) => HabitActions(ref.watch(databaseProvider)));

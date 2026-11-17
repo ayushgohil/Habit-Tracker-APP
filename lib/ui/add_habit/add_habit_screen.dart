@@ -7,6 +7,7 @@ import '../../core/habit_icons.dart';
 import '../../core/streak.dart';
 import '../../data/database.dart';
 import '../../data/providers.dart';
+import '../../notifications/habit_notification_service.dart';
 import '../../theme/ember_theme.dart';
 
 class AddHabitScreen extends ConsumerStatefulWidget {
@@ -30,6 +31,10 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
   int _intervalDays = 2;
   int _periodTarget = 1;
   bool _twoDayRule = false;
+  bool _reminderEnabled = false;
+  TimeOfDay _reminderTime = const TimeOfDay(hour: 20, minute: 0);
+  bool _partialNudgeEnabled = false;
+  TimeOfDay _partialNudgeTime = const TimeOfDay(hour: 21, minute: 0);
   bool _saving = false;
 
   /// The first day the habit exists. Stored as the habit's creation date.
@@ -53,6 +58,10 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
     _intervalDays = h.intervalDays;
     _periodTarget = h.periodTarget;
     _twoDayRule = h.twoDayRule;
+    _reminderEnabled = h.reminderEnabled;
+    _reminderTime = TimeOfDay(hour: h.reminderHour, minute: h.reminderMinute);
+    _partialNudgeEnabled = h.partialNudgeEnabled;
+    _partialNudgeTime = TimeOfDay(hour: h.partialNudgeHour, minute: h.partialNudgeMinute);
   }
 
   @override
@@ -66,6 +75,14 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
   int _positive(TextEditingController c, int fallback, int max) {
     final value = int.tryParse(c.text) ?? fallback;
     return value.clamp(1, max);
+  }
+
+  Future<void> _pickReminderTime({required bool nudge}) async {
+    final picked = await showTimePicker(context: context, initialTime: nudge ? _partialNudgeTime : _reminderTime);
+    if (picked == null || !mounted) return;
+    setState(() {
+      if (nudge) { _partialNudgeTime = picked; } else { _reminderTime = picked; }
+    });
   }
 
   Future<void> _pickStartDate() async {
@@ -94,6 +111,14 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
       );
       return;
     }
+    if (_reminderEnabled) {
+      final granted = await HabitNotificationService.instance.requestPermission();
+      if (!granted && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Allow notifications in Android settings to receive habit reminders.')),
+        );
+      }
+    }
     setState(() => _saving = true);
     final schedule = Schedule(
       type: _schedule,
@@ -104,9 +129,10 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
       anchorDate: _startDate,
     );
     final actions = ref.read(habitActionsProvider);
+    late final int savedHabitId;
     if (widget.habit == null) {
       final existing = ref.read(habitsProvider).valueOrNull?.length ?? 0;
-      await actions.add(
+      savedHabitId = await actions.add(
         name: name,
         iconKey: _icon,
         colorValue: _color.toARGB32(),
@@ -116,9 +142,16 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
         taskType: _taskType,
         twoDayRule: _twoDayRule,
         targetDurationSeconds: _positive(_duration, 30, 1440) * 60,
+        reminderEnabled: _reminderEnabled,
+        reminderHour: _reminderTime.hour,
+        reminderMinute: _reminderTime.minute,
+        partialNudgeEnabled: _partialNudgeEnabled,
+        partialNudgeHour: _partialNudgeTime.hour,
+        partialNudgeMinute: _partialNudgeTime.minute,
         startDate: _startDate,
       );
     } else {
+      savedHabitId = widget.habit!.id;
       await actions.edit(
         id: widget.habit!.id,
         name: name,
@@ -129,9 +162,20 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
         taskType: _taskType,
         twoDayRule: _twoDayRule,
         targetDurationSeconds: _positive(_duration, 30, 1440) * 60,
+        reminderEnabled: _reminderEnabled,
+        reminderHour: _reminderTime.hour,
+        reminderMinute: _reminderTime.minute,
+        partialNudgeEnabled: _partialNudgeEnabled,
+        partialNudgeHour: _partialNudgeTime.hour,
+        partialNudgeMinute: _partialNudgeTime.minute,
         startDate: _startDate,
       );
     }
+    final db = ref.read(databaseProvider);
+    final savedHabit = await (db.select(db.habits)
+          ..where((row) => row.id.equals(savedHabitId)))
+        .getSingle();
+    await HabitNotificationService.instance.syncHabit(savedHabit);
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -254,6 +298,23 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
               max: 366,
               onChanged: (v) => setState(() => _periodTarget = v),
             ),
+          const _Label('Reminders'),
+          SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('Daily reminder'),
+            subtitle: const Text('Send a daily reminder at your chosen time'),
+            value: _reminderEnabled, onChanged: (value) => setState(() => _reminderEnabled = value)),
+          if (_reminderEnabled)
+            ListTile(contentPadding: EdgeInsets.zero, title: const Text('Reminder time'),
+              subtitle: Text(_reminderTime.format(context)), trailing: const Icon(Icons.access_time_rounded),
+              onTap: () => _pickReminderTime(nudge: false)),
+          if (_reminderEnabled) ...[
+            SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('Partial-progress nudge'),
+              subtitle: const Text('Send a second reminder later in the day'),
+              value: _partialNudgeEnabled, onChanged: (value) => setState(() => _partialNudgeEnabled = value)),
+            if (_partialNudgeEnabled)
+              ListTile(contentPadding: EdgeInsets.zero, title: const Text('Nudge time'),
+                subtitle: Text(_partialNudgeTime.format(context)), trailing: const Icon(Icons.access_time_rounded),
+                onTap: () => _pickReminderTime(nudge: true)),
+          ],
           const _Label('Icon'),
           Wrap(
             spacing: 10,
