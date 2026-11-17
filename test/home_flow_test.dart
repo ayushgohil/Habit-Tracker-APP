@@ -1,6 +1,8 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:ember/app.dart';
 import 'package:ember/core/day.dart';
+import 'package:ember/core/streak.dart';
 import 'package:ember/data/database.dart';
 import 'package:ember/data/providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,6 +21,7 @@ Future<void> settle(WidgetTester tester) async {
 Future<AppDatabase> startApp(
   WidgetTester tester, {
   bool withHabit = false,
+  bool timed = false,
 }) async {
   // A typical phone: 411 x 800 logical pixels.
   tester.view.devicePixelRatio = 1;
@@ -33,6 +36,9 @@ Future<AppDatabase> startApp(
           name: 'DSA learning',
           iconKey: 'code',
           colorValue: 0xFFFF6B2C,
+          taskType: Value(
+            timed ? HabitTaskType.timed.index : HabitTaskType.normal.index,
+          ),
         ),
       ),
     );
@@ -144,6 +150,25 @@ void main() {
     await tester.tap(find.text('Save changes'));
     await settle(tester);
     expect(find.text('DSA practice'), findsWidgets);
+
+    await shutDown(tester, db);
+  });
+
+  testWidgets('log time on a timed habit, then clear it', (tester) async {
+    final db = await startApp(tester, withHabit: true, timed: true);
+
+    await tester.tap(find.text('DSA learning').last);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '10');
+    await tester.tap(find.text('Save'));
+    await settle(tester);
+    expect(find.text('DSA learning: 10 min logged'), findsOneWidget);
+
+    await tester.tap(find.text('DSA learning').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Clear logged time'));
+    await settle(tester);
+    expect(find.text('DSA learning time cleared'), findsOneWidget);
 
     await shutDown(tester, db);
   });

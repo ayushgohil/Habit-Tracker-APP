@@ -10,6 +10,7 @@ import '../../core/streak.dart';
 import '../../data/providers.dart';
 import '../../theme/ember_theme.dart';
 import '../add_habit/add_habit_screen.dart';
+import '../common/text_dialogs.dart';
 import '../library/habit_library_screen.dart';
 import 'habit_details_sheet.dart';
 import 'habit_tile.dart';
@@ -45,41 +46,13 @@ class HomeScreen extends ConsumerWidget {
       await actions.tap(view, day);
       message = view.isDone ? '${view.habit.name} marked incomplete' : '${view.habit.name} logged';
     } else {
-      // Pops with minutes to add, or this sentinel to clear what was logged.
-      const clearLogged = -1;
-      final controller = TextEditingController();
-      final minutes = await showDialog<int>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: Text('Log time · ${view.habit.name}'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'Minutes completed', suffixText: 'min'),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Cancel')),
-            if (previousAmount > 0)
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(clearLogged),
-                child: const Text('Clear logged time'),
-              ),
-            FilledButton(
-              onPressed: () {
-                // Only positive input is accepted, so typing a negative number
-                // can never be mistaken for the clear sentinel.
-                final typed = int.tryParse(controller.text);
-                Navigator.of(dialogContext).pop(typed != null && typed > 0 ? typed : null);
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        ),
+      final minutes = await showLogTimeDialog(
+        context,
+        habitName: view.habit.name,
+        canClear: previousAmount > 0,
       );
-      controller.dispose();
       if (minutes == null || !context.mounted) return;
-      if (minutes == clearLogged) {
+      if (minutes == clearLoggedTime) {
         await actions.setTimedProgress(view, day, 0);
         message = '${view.habit.name} time cleared';
       } else {
@@ -102,32 +75,12 @@ class HomeScreen extends ConsumerWidget {
     final actions = ref.read(habitActionsProvider);
     final existing = await actions.loadNote(day);
     if (!context.mounted) return;
-    final controller = TextEditingController(text: existing ?? '');
-    final note = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text('Note · ${DateFormat('d MMM yyyy').format(day)}'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          minLines: 3,
-          maxLines: 6,
-          maxLength: 1000,
-          decoration: const InputDecoration(hintText: 'What happened today?'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(controller.text),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
+    final note = await showNoteDialog(
+      context,
+      title: 'Note · ${DateFormat('d MMM yyyy').format(day)}',
+      initialText: existing ?? '',
+      hintText: 'What happened today?',
     );
-    controller.dispose();
     if (note != null) await actions.saveNote(day, note);
   }
 

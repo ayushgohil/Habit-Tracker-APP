@@ -6,6 +6,7 @@ import '../../core/habit_icons.dart';
 import '../../data/providers.dart';
 import '../../theme/ember_theme.dart';
 import '../add_habit/add_habit_screen.dart';
+import '../common/text_dialogs.dart';
 
 Future<void> showHabitDetails(BuildContext context, WidgetRef ref, HabitView view, DateTime day) {
   final actions = ref.read(habitActionsProvider);
@@ -65,26 +66,13 @@ Future<void> showHabitDetails(BuildContext context, WidgetRef ref, HabitView vie
               onTap: () async {
                 final existing = await actions.loadNote(day);
                 if (!sheetContext.mounted) return;
-                final controller = TextEditingController(text: existing ?? '');
-                final note = await showDialog<String>(
-                  context: sheetContext,
-                  builder: (dialogContext) => AlertDialog(
-                    title: const Text('Daily note'),
-                    content: TextField(
-                      controller: controller,
-                      autofocus: true,
-                      minLines: 3,
-                      maxLines: 6,
-                      maxLength: 500,
-                      decoration: const InputDecoration(hintText: 'How did this day go?'),
-                    ),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Cancel')),
-                      FilledButton(onPressed: () => Navigator.of(dialogContext).pop(controller.text), child: const Text('Save')),
-                    ],
-                  ),
+                final note = await showNoteDialog(
+                  sheetContext,
+                  title: 'Daily note',
+                  initialText: existing ?? '',
+                  hintText: 'How did this day go?',
+                  maxLength: 500,
                 );
-                controller.dispose();
                 if (note != null) await actions.saveNote(day, note);
                 if (sheetContext.mounted) Navigator.of(sheetContext).pop();
               },
