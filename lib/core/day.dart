@@ -19,6 +19,12 @@ int daysBetween(DateTime from, DateTime to) => DateTime.utc(
       to.day,
     ).difference(DateTime.utc(from.year, from.month, from.day)).inDays;
 
+/// Whether a habit that starts on [start] already exists on [day].
+///
+/// A habit is not shown (and does not count) on days before it started.
+bool hasStartedBy(DateTime start, DateTime day) =>
+    !startOfDay(start).isAfter(startOfDay(day));
+
 /// Monday-based start of the week containing [d].
 DateTime startOfWeek(DateTime d) => addDays(startOfDay(d), -(d.weekday - 1));
 

@@ -14,10 +14,16 @@ Future<void> showHabitDetails(BuildContext context, WidgetRef ref, HabitView vie
     context: context,
     backgroundColor: EmberColors.surfaceHigh,
     showDragHandle: true,
+    // Without this the sheet is capped at 9/16 of the screen height and the
+    // menu overflows on most phones.
+    isScrollControlled: true,
+    useSafeArea: true,
     builder: (sheetContext) => SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
-        child: Column(
+        // Scrollable so a short screen or a large font never overflows.
+        child: SingleChildScrollView(
+          child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -139,6 +145,7 @@ Future<void> showHabitDetails(BuildContext context, WidgetRef ref, HabitView vie
               },
             ),
           ],
+        ),
         ),
       ),
     ),
