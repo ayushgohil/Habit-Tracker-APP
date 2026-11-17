@@ -48,7 +48,7 @@ class Schedule {
         return ((weekdayMask >> (day.weekday - 1)) & 1) == 1;
       case ScheduleType.everyNDays:
         final anchor = startOfDay(anchorDate ?? DateTime(1970, 1, 5));
-        return (startOfDay(day).difference(anchor).inDays % _safeInterval) == 0;
+        return (daysBetween(anchor, day) % _safeInterval) == 0;
     }
   }
 
@@ -133,8 +133,8 @@ DateTime _monthStart(DateTime d) => DateTime(d.year, d.month);
 DateTime _yearStart(DateTime d) => DateTime(d.year);
 DateTime _fortnightStart(DateTime d) {
   final anchor = DateTime(1970, 1, 5);
-  final weeks = startOfWeek(d).difference(anchor).inDays ~/ 14;
-  return addDays(anchor, weeks * 14);
+  final fortnights = daysBetween(anchor, startOfWeek(d)) ~/ 14;
+  return addDays(anchor, fortnights * 14);
 }
 
 _Period _periodFor(Schedule s, DateTime day) {
@@ -146,7 +146,7 @@ _Period _periodFor(Schedule s, DateTime day) {
     case ScheduleType.everyNDays:
       final anchor = startOfDay(s.anchorDate ?? DateTime(1970, 1, 5));
       final interval = s.intervalDays < 1 ? 1 : s.intervalDays;
-      final index = d.difference(anchor).inDays ~/ interval;
+      final index = daysBetween(anchor, d) ~/ interval;
       final start = addDays(anchor, index * interval);
       return _Period(start, addDays(start, interval - 1), StreakUnit.days);
     case ScheduleType.timesPerWeek:
@@ -184,9 +184,14 @@ List<_Period> _periods(Schedule schedule, DateTime from, DateTime through) {
 }
 
 bool _periodComplete(Schedule schedule, _Period period, Set<String> doneDays) {
+  // An every-N-days window is flexible: doing the habit on any day inside the
+  // window counts, not only on the day the window opens.
+  final flexible = schedule.type == ScheduleType.everyNDays;
   var count = 0;
   for (var day = period.start; !day.isAfter(period.end); day = addDays(day, 1)) {
-    if (schedule.isDue(day) && doneDays.contains(dayKey(day))) count++;
+    if ((flexible || schedule.isDue(day)) && doneDays.contains(dayKey(day))) {
+      count++;
+    }
   }
   return count >= schedule.target;
 }
@@ -222,7 +227,10 @@ HabitStats calculateHabitStats({
   var current = 0;
   var misses = 0;
   for (var i = completed.length - 1; i >= 0; i--) {
-    final isCurrent = i == completed.length - 1;
+    // A period is open only while it still contains the day being viewed.
+    // The last period is not always open: on a day a weekday habit isn't
+    // scheduled, the last period is an earlier scheduled day that is over.
+    final isCurrent = !periods[i].end.isBefore(end);
     if (completed[i]) {
       current++;
       misses = 0;

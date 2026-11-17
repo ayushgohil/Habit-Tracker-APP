@@ -27,14 +27,23 @@ class _EmberAppState extends ConsumerState<EmberApp>
     super.dispose();
   }
 
+  /// The calendar day the app last saw as "today".
+  DateTime _lastToday = startOfDay(DateTime.now());
+
   /// Rolls "today" over when the app is reopened after midnight.
+  ///
+  /// Only a selection that was showing the old "today" moves forward. If the
+  /// person was reviewing or logging a past day, resuming the app must not
+  /// bounce them back to today.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) return;
     final today = startOfDay(DateTime.now());
-    if (ref.read(todayProvider) != today) {
+    if (today == _lastToday) return;
+    if (ref.read(todayProvider) == _lastToday) {
       ref.read(todayProvider.notifier).state = today;
     }
+    _lastToday = today;
   }
 
   @override

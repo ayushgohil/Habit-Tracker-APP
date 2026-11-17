@@ -5,10 +5,12 @@ import 'package:intl/intl.dart';
 
 import '../../core/day.dart';
 import '../../core/habit_icons.dart';
+import '../../core/habit_order.dart';
 import '../../core/streak.dart';
 import '../../data/providers.dart';
 import '../../theme/ember_theme.dart';
 import '../add_habit/add_habit_screen.dart';
+import '../library/habit_library_screen.dart';
 import 'habit_details_sheet.dart';
 import 'habit_tile.dart';
 
@@ -17,6 +19,10 @@ class HomeScreen extends ConsumerWidget {
 
   void _openAddHabit(BuildContext context) {
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const AddHabitScreen()));
+  }
+
+  void _openLibrary(BuildContext context) {
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const HabitLibraryScreen()));
   }
 
   Future<void> _pickDay(BuildContext context, WidgetRef ref, DateTime selected) async {
@@ -34,9 +40,13 @@ class HomeScreen extends ConsumerWidget {
   Future<void> _handleHabitTap(BuildContext context, WidgetRef ref, HabitView view, DateTime day) async {
     final actions = ref.read(habitActionsProvider);
     final previousAmount = view.countToday;
+    final String message;
     if (view.habit.taskType != HabitTaskType.timed.index) {
       await actions.tap(view, day);
+      message = view.isDone ? '${view.habit.name} marked incomplete' : '${view.habit.name} logged';
     } else {
+      // Pops with minutes to add, or this sentinel to clear what was logged.
+      const clearLogged = -1;
       final controller = TextEditingController();
       final minutes = await showDialog<int>(
         context: context,
@@ -50,19 +60,38 @@ class HomeScreen extends ConsumerWidget {
           ),
           actions: [
             TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Cancel')),
-            FilledButton(onPressed: () => Navigator.of(dialogContext).pop(int.tryParse(controller.text)), child: const Text('Save')),
+            if (previousAmount > 0)
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(clearLogged),
+                child: const Text('Clear logged time'),
+              ),
+            FilledButton(
+              onPressed: () {
+                // Only positive input is accepted, so typing a negative number
+                // can never be mistaken for the clear sentinel.
+                final typed = int.tryParse(controller.text);
+                Navigator.of(dialogContext).pop(typed != null && typed > 0 ? typed : null);
+              },
+              child: const Text('Save'),
+            ),
           ],
         ),
       );
       controller.dispose();
-      if (minutes == null || minutes <= 0 || !context.mounted) return;
-      await actions.setTimedProgress(view, day, previousAmount + minutes * 60);
+      if (minutes == null || !context.mounted) return;
+      if (minutes == clearLogged) {
+        await actions.setTimedProgress(view, day, 0);
+        message = '${view.habit.name} time cleared';
+      } else {
+        await actions.setTimedProgress(view, day, previousAmount + minutes * 60);
+        message = '${view.habit.name}: $minutes min logged';
+      }
     }
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(view.isDone ? '${view.habit.name} marked incomplete' : '${view.habit.name} logged'),
+        content: Text(message),
         action: SnackBarAction(label: 'Undo', onPressed: () => actions.setAmount(view, day, previousAmount)),
       ),
     );
@@ -131,6 +160,7 @@ class HomeScreen extends ConsumerWidget {
                 onPickDay: () => _pickDay(context, ref, selectedDay),
                 onToday: () => ref.read(todayProvider.notifier).state = startOfDay(DateTime.now()),
                 onNote: () => _editDayNote(context, ref, selectedDay),
+                onLibrary: () => _openLibrary(context),
               ),
             ),
             ...viewsAsync.when<List<Widget>>(
@@ -201,12 +231,13 @@ class HomeScreen extends ConsumerWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.day, required this.views, required this.onPickDay, required this.onToday, required this.onNote});
+  const _Header({required this.day, required this.views, required this.onPickDay, required this.onToday, required this.onNote, required this.onLibrary});
   final DateTime day;
   final List<HabitView>? views;
   final VoidCallback onPickDay;
   final VoidCallback onToday;
   final VoidCallback onNote;
+  final VoidCallback onLibrary;
 
   @override
   Widget build(BuildContext context) {
@@ -229,6 +260,11 @@ class _Header extends StatelessWidget {
                 tooltip: 'Daily note',
                 onPressed: onNote,
                 icon: const Icon(Icons.note_alt_outlined),
+              ),
+              IconButton(
+                tooltip: 'Habit library',
+                onPressed: onLibrary,
+                icon: const Icon(Icons.inventory_2_outlined),
               ),
               if (!isToday) TextButton(onPressed: onToday, child: const Text('Today')),
             ],
@@ -345,7 +381,20 @@ class _UpNext extends StatelessWidget {
                 final moved = [...ordered];
                 final item = moved.removeAt(oldIndex);
                 moved.insert(newIndex, item);
-                onReorder(moved.map((v) => v.habit.id).toList());
+                // Only reorder inside the dragged habit's own group, so the
+                // pending-first display order never leaks into the saved order.
+                final itemIsPending = item.schedule.isDue(day) && !item.isDone;
+                bool isPending(HabitView v) => v.schedule.isDue(day) && !v.isDone;
+                onReorder(
+                  reorderWithinGroup(
+                    persisted: views.map((v) => v.habit.id).toList(),
+                    displayedAfterMove: moved.map((v) => v.habit.id).toList(),
+                    group: {
+                      for (final v in views)
+                        if (isPending(v) == itemIsPending) v.habit.id,
+                    },
+                  ),
+                );
                 HapticFeedback.selectionClick();
               },
               itemBuilder: (context, index) {
