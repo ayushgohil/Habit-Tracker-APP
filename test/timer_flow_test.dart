@@ -96,7 +96,9 @@ void main() {
     await tester.longPress(find.text('DSA learning').last);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Timer'));
-    await tester.pumpAndSettle();
+    // The timer screen shows a spinner until its streams emit, which needs
+    // real async time, so settle() rather than pumpAndSettle().
+    await settle(tester);
     expect(find.byKey(const Key('timer-clock')), findsOneWidget);
     expect(find.text('Goal 30:00'), findsOneWidget);
 
@@ -136,7 +138,7 @@ void main() {
 
     expect(find.byKey(Key('timer-banner-$id')), findsOneWidget);
     await tester.tap(find.byKey(Key('timer-banner-$id')));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Resume'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('timer-discard')));
