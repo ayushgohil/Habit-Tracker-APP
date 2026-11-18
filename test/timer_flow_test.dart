@@ -139,11 +139,11 @@ void main() {
 
     expect(find.byKey(Key('timer-banner-$id')), findsOneWidget);
     await tester.tap(find.byKey(Key('timer-banner-$id')));
-    await settle(tester);
+    await pumpBoth(tester);
     expect(find.text('Resume'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('timer-discard')));
-    await settle(tester);
+    await pumpBoth(tester);
     expect(find.byKey(Key('timer-banner-$id')), findsNothing);
     expect(await tester.runAsync(() => db.getTimer(id)), isNull);
 
