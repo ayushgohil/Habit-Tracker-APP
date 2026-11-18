@@ -97,6 +97,20 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
     if (picked != null) setState(() => _startDate = startOfDay(picked));
   }
 
+  Future<bool?> _confirm({required String title, required String message, required String action}) {
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: Text(action)),
+        ],
+      ),
+    );
+  }
+
   Future<void> _save() async {
     final name = _name.text.trim();
     if (name.isEmpty) {
@@ -119,7 +133,6 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
         );
       }
     }
-    setState(() => _saving = true);
     final schedule = Schedule(
       type: _schedule,
       weekdayMask: _weekdayMask,
@@ -128,6 +141,45 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
       periodTarget: _periodTarget,
       anchorDate: _startDate,
     );
+    final newTarget = _taskType == HabitTaskType.timed
+        ? _positive(_duration, 30, 1440) * 60
+        : _positive(_target, 1, 999);
+    var wholeHistory = false;
+    final old = widget.habit;
+    if (old != null) {
+      if (dayKey(_startDate) != dayKey(old.createdAt)) {
+        final ok = await _confirm(
+          title: 'Change the start date?',
+          message: 'Days before the new start date stop counting towards this habit, and days since an earlier start count as missed. Nothing you logged is deleted.',
+          action: 'Change it',
+        );
+        if (ok != true || !mounted) return;
+      }
+      final goalChanged = old.taskType != _taskType.index ||
+          (old.taskType == HabitTaskType.timed.index ? old.targetDurationSeconds : old.dailyTarget) != newTarget ||
+          old.scheduleType != schedule.type.index ||
+          old.weekdayMask != schedule.weekdayMask ||
+          old.timesPerWeek != schedule.timesPerWeek ||
+          old.intervalDays != schedule.intervalDays ||
+          old.periodTarget != schedule.periodTarget;
+      if (goalChanged) {
+        final choice = await showDialog<_GoalChange>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Apply the new goal from when?'),
+            content: const Text('Past days can keep the goal they had, so your streak and history stay as they were, or everything can be judged against the new goal.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.of(dialogContext).pop(_GoalChange.cancel), child: const Text('Cancel')),
+              TextButton(onPressed: () => Navigator.of(dialogContext).pop(_GoalChange.allDays), child: const Text('All past days')),
+              FilledButton(onPressed: () => Navigator.of(dialogContext).pop(_GoalChange.fromToday), child: const Text('From today')),
+            ],
+          ),
+        );
+        if (choice == null || choice == _GoalChange.cancel || !mounted) return;
+        wholeHistory = choice == _GoalChange.allDays;
+      }
+    }
+    setState(() => _saving = true);
     final actions = ref.read(habitActionsProvider);
     late final int savedHabitId;
     if (widget.habit == null) {
@@ -169,6 +221,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
         partialNudgeHour: _partialNudgeTime.hour,
         partialNudgeMinute: _partialNudgeTime.minute,
         startDate: _startDate,
+        applyToWholeHistory: wholeHistory,
       );
     }
     final db = ref.read(databaseProvider);
@@ -426,3 +479,5 @@ class _NumberSetting extends StatelessWidget {
         ),
       );
 }
+
+enum _GoalChange { cancel, fromToday, allDays }

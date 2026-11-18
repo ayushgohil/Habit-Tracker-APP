@@ -93,7 +93,7 @@ class _HabitStatsScreenState extends ConsumerState<HabitStatsScreen> {
         minutes == clearLoggedTime ? 0 : current + minutes * 60,
       );
     } else {
-      final done = current >= history.target;
+      final done = current >= history.targetOn(day);
       await actions.setDayAmount(history.habit.id, day, done ? 0 : current + 1);
     }
   }
@@ -216,9 +216,9 @@ class _CalendarCard extends StatelessWidget {
                         : _DayCell(
                             day: day,
                             state: dayStateFor(
-                              schedule: history.schedule,
+                              schedule: history.scheduleOn(day),
                               amount: history.amounts[dayKey(day)] ?? 0,
-                              target: history.target,
+                              target: history.targetOn(day),
                               day: day,
                               today: today,
                               start: start,
@@ -317,11 +317,11 @@ class _ChartCard extends StatelessWidget {
     var every = 1;
     switch (range) {
       case _Range.week:
-        values = dailyProgress(amounts: history.amounts, target: history.target, end: today, days: 7);
+        values = dailyProgress(amounts: history.amounts, targetOf: history.targetOn, end: today, days: 7);
         labels = [for (var i = 6; i >= 0; i--) DateFormat('E').format(addDays(today, -i)).substring(0, 1)];
         maxValue = 1;
       case _Range.month:
-        values = dailyProgress(amounts: history.amounts, target: history.target, end: today, days: 30);
+        values = dailyProgress(amounts: history.amounts, targetOf: history.targetOn, end: today, days: 30);
         labels = [for (var i = 29; i >= 0; i--) '${addDays(today, -i).day}'];
         maxValue = 1;
         every = 5;

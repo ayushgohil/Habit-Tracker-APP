@@ -81,21 +81,27 @@ List<List<DateTime?>> monthGrid(DateTime month) {
 }
 
 /// Progress (0 to 1) for each of the [days] days ending on [end], oldest first.
+///
+/// [targetOf] gives each day's own goal when it changed over time; otherwise
+/// [target] is used for every day.
 List<double> dailyProgress({
   required Map<String, int> amounts,
-  required int target,
+  int target = 0,
+  int Function(DateTime day)? targetOf,
   required DateTime end,
   required int days,
 }) {
   return [
     for (var i = days - 1; i >= 0; i--)
-      target <= 0
-          ? 0.0
-          : ((amounts[dayKey(addDays(end, -i))] ?? 0) / target)
-              .clamp(0.0, 1.0)
-              .toDouble(),
+      _share(
+        amounts[dayKey(addDays(end, -i))] ?? 0,
+        targetOf == null ? target : targetOf(addDays(end, -i)),
+      ),
   ];
 }
+
+double _share(int amount, int target) =>
+    target <= 0 ? 0.0 : (amount / target).clamp(0.0, 1.0).toDouble();
 
 /// How many days were done in each of the [months] calendar months ending with
 /// the month of [end], oldest first.
