@@ -316,6 +316,21 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
+  /// Seconds until a running timer reaches the habit's goal for the day it was
+  /// started, counting what was already logged that day. Null if no timer is
+  /// running or the goal is already reached.
+  Future<int?> secondsUntilGoal(int habitId, DateTime now) async {
+    final timer = await getTimer(habitId);
+    if (timer == null || timer.runningSince == null) return null;
+    final habit = await (select(habits)..where((h) => h.id.equals(habitId))).getSingleOrNull();
+    if (habit == null || habit.taskType != 2) return null;
+    final logged = await (select(completions)
+          ..where((c) => c.habitId.equals(habitId) & c.day.equals(timer.day)))
+        .getSingleOrNull();
+    final remaining = habit.targetDurationSeconds - (logged?.amount ?? 0) - stateOf(timer).elapsedSeconds(now);
+    return remaining > 0 ? remaining : null;
+  }
+
   Future<void> discardTimer(int habitId) =>
       (delete(activeTimers)..where((t) => t.habitId.equals(habitId))).go();
 

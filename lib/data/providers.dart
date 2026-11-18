@@ -261,8 +261,20 @@ class HabitActions {
     if (timer == null || habit == null) {
       await HabitNotificationService.instance.cancelTimer(habitId);
     } else {
-      await HabitNotificationService.instance.showTimer(habit, AppDatabase.stateOf(timer));
+      await HabitNotificationService.instance.showTimer(
+        habit,
+        AppDatabase.stateOf(timer),
+        secondsUntilGoal: await _db.secondsUntilGoal(habitId, DateTime.now()),
+      );
     }
+  }
+
+  /// Saves what a running or paused timer has counted and removes it. Used
+  /// when a habit is archived or paused, so no time is lost.
+  Future<void> _endTimer(int habitId) async {
+    if (await _db.getTimer(habitId) == null) return;
+    await _db.finishTimer(habitId, DateTime.now());
+    await _syncTimerNotification(habitId);
   }
 
   /// Starts a timer, or resumes a paused one.
@@ -289,6 +301,7 @@ class HabitActions {
   }
 
   Future<void> archive(int id) async {
+    await _endTimer(id);
     await _db.archiveHabit(id);
     await _syncReminder(id);
   }
@@ -299,6 +312,7 @@ class HabitActions {
   }
 
   Future<void> pause(int id) async {
+    await _endTimer(id);
     await _db.pauseHabit(id);
     await _syncReminder(id);
   }
