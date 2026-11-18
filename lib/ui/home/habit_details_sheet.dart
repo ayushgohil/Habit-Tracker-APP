@@ -3,11 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/habit_icons.dart';
+import '../../core/streak.dart';
 import '../../data/providers.dart';
 import '../../theme/ember_theme.dart';
 import '../add_habit/add_habit_screen.dart';
 import '../common/text_dialogs.dart';
 import '../stats/habit_stats_screen.dart';
+import '../timer/timer_screen.dart';
 
 Future<void> showHabitDetails(BuildContext context, WidgetRef ref, HabitView view, DateTime day) {
   final actions = ref.read(habitActionsProvider);
@@ -59,6 +61,17 @@ Future<void> showHabitDetails(BuildContext context, WidgetRef ref, HabitView vie
               ],
             ),
             const SizedBox(height: 12),
+            if (habit.taskType == HabitTaskType.timed.index)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.timer_outlined),
+                title: const Text('Timer'),
+                subtitle: const Text('Time it live, with a notification'),
+                onTap: () async {
+                  Navigator.of(sheetContext).pop();
+                  await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => TimerScreen(habitId: habit.id)));
+                },
+              ),
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.insights_rounded),

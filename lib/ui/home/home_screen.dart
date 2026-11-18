@@ -12,6 +12,7 @@ import '../../theme/ember_theme.dart';
 import '../add_habit/add_habit_screen.dart';
 import '../common/text_dialogs.dart';
 import '../library/habit_library_screen.dart';
+import '../timer/running_timers_banner.dart';
 import 'habit_details_sheet.dart';
 import 'habit_tile.dart';
 
@@ -116,6 +117,7 @@ class HomeScreen extends ConsumerWidget {
                 onLibrary: () => _openLibrary(context),
               ),
             ),
+            const SliverToBoxAdapter(child: RunningTimersBanner()),
             ...viewsAsync.when<List<Widget>>(
               data: (views) {
                 if (views.isEmpty) {
