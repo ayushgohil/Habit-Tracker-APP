@@ -87,7 +87,8 @@ void main() {
     final names = [for (final h in await target.select(target.habits).get()) h.name];
     expect(names, unorderedEquals(['Run, "fast"', 'Study']));
     expect(await target.select(target.activeTimers).get(), isEmpty);
-    expect((await target.select(target.completions).get()).every((c) => c.habitId != other), isTrue);
+    // Only the backup's two logged days remain, not the one logged before.
+    expect(await target.select(target.completions).get(), hasLength(2));
   });
 
   test('invalid files are rejected and change nothing', () async {
