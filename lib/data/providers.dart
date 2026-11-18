@@ -53,6 +53,11 @@ final habitViewsProvider = Provider<AsyncValue<List<HabitView>>>((ref) {
   ]);
 });
 
+/// The share (0 to 1) of the daily target reached on each logged day.
+Map<String, double> dayProgressOf(Map<String, int> amounts, int target) => {
+      for (final e in amounts.entries) e.key: target <= 0 ? 0.0 : (e.value / target).clamp(0.0, 1.0).toDouble(),
+    };
+
 /// What counts as "done" for a habit on one day.
 int targetForHabit(Habit habit) =>
     habit.taskType == HabitTaskType.timed.index ? habit.targetDurationSeconds : habit.dailyTarget;
@@ -96,6 +101,7 @@ HabitHistory buildHistory(Habit habit, Map<String, int> amounts, DateTime today)
     today: today,
     taskType: HabitTaskType.values[habit.taskType],
     twoDayRule: habit.twoDayRule,
+    dayProgress: dayProgressOf(amounts, target),
   );
   return HabitHistory(habit: habit, amounts: amounts, stats: stats, schedule: schedule, target: target);
 }
@@ -125,6 +131,7 @@ HabitView _view(Habit habit, Map<String, int> amounts, DateTime day, String key)
     today: day,
     taskType: HabitTaskType.values[habit.taskType],
     twoDayRule: habit.twoDayRule,
+    dayProgress: dayProgressOf(amounts, target),
   );
   return HabitView(habit: habit, countToday: amounts[key] ?? 0, stats: stats, schedule: schedule);
 }

@@ -110,6 +110,8 @@ jobs:
                   ET.SubElement(root, "uses-permission", {android + "name": permission})
 
           application = root.find("application")
+          # The name shown under the launcher icon.
+          application.set(android + "label", "Ember")
           receivers = [
               ("com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver", []),
               ("com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver", [
