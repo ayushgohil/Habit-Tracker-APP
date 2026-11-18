@@ -218,9 +218,9 @@ class AppDatabase extends _$AppDatabase {
   Future<void> startTimer(int habitId, DateTime now) async {
     final existing = await getTimer(habitId);
     if (existing == null) {
-      await into(activeTimers).insert(ActiveTimersCompanion.insert(
-        habitId: habitId,
-        day: dayKey(now),
+      await into(activeTimers).insert(ActiveTimersCompanion(
+        habitId: Value(habitId),
+        day: Value(dayKey(now)),
         runningSince: Value(now),
       ));
       return;

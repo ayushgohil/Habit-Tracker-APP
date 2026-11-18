@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/day.dart';
 import '../core/streak.dart';
-import '../core/timer.dart';
 import 'database.dart';
 import '../notifications/habit_notification_service.dart';
 

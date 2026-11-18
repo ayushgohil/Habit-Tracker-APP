@@ -41,7 +41,7 @@ void main() {
   });
 
   test('progress is clamped between 0 and 1', () {
-    final timer = const TimerState(bankedSeconds: 900);
+    const timer = TimerState(bankedSeconds: 900);
     expect(timer.progress(t0, 1800), 0.5);
     expect(timer.progress(t0, 600), 1.0);
     expect(timer.progress(t0, 0), 0.0);
