@@ -163,6 +163,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
           old.intervalDays != schedule.intervalDays ||
           old.periodTarget != schedule.periodTarget;
       if (goalChanged) {
+        if (!mounted) return;
         final choice = await showDialog<_GoalChange>(
           context: context,
           builder: (dialogContext) => AlertDialog(
