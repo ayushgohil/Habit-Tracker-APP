@@ -206,6 +206,35 @@ class AppDatabase extends _$AppDatabase {
         periodTarget: Value(habit.periodTarget),
       );
 
+  /// Replaces everything with the given rows (ids are kept). Running timers
+  /// are dropped. Habits with no goal rows get one from their current settings.
+  Future<void> replaceAllData({
+    required List<Habit> habitRows,
+    required List<Completion> completionRows,
+    required List<DayNote> noteRows,
+    required List<HabitGoal> goalRows,
+  }) {
+    return transaction(() async {
+      await delete(activeTimers).go();
+      await delete(habitGoals).go();
+      await delete(completions).go();
+      await delete(dayNotes).go();
+      await delete(habits).go();
+      await batch((b) {
+        b.insertAll(habits, habitRows);
+        b.insertAll(completions, completionRows);
+        b.insertAll(dayNotes, noteRows);
+        b.insertAll(habitGoals, goalRows);
+      });
+      final withGoals = {for (final g in goalRows) g.habitId};
+      for (final habit in habitRows) {
+        if (!withGoals.contains(habit.id)) {
+          await into(habitGoals).insert(_goalFor(habit, dayKey(habit.createdAt)));
+        }
+      }
+    });
+  }
+
   Stream<List<HabitGoal>> watchGoals() => select(habitGoals).watch();
 
   /// Records the habit's current goal as applying from [from] onwards. Days
