@@ -16,6 +16,16 @@ Future<void> settle(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+/// Alternates real time (for the database) with fake time (for timers and
+/// frames) a few times. Unlike pumpAndSettle it also works while the timer
+/// screen's one-second ticker is running, which would never let it settle.
+Future<void> pumpBoth(WidgetTester tester, {int rounds = 6}) async {
+  for (var i = 0; i < rounds; i++) {
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+}
+
 Future<(AppDatabase, int)> startApp(WidgetTester tester) async {
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = const Size(411, 900);
@@ -103,23 +113,14 @@ void main() {
     expect(find.text('Goal 30:00'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('timer-toggle')));
-    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
-    await tester.pump();
-    // While running the toggle becomes Pause. Pause before settling, because a
-    // running timer redraws every second.
+    await pumpBoth(tester);
     expect(find.text('Pause'), findsOneWidget);
     await tester.tap(find.byKey(const Key('timer-toggle')));
-    await settle(tester);
+    await pumpBoth(tester);
     expect(find.text('Resume'), findsOneWidget);
 
-    // Give the timer some banked time, then save it.
-    await tester.runAsync(() async {
-      await db.pauseTimer(id, DateTime.now());
-      final t = await db.getTimer(id);
-      expect(t, isNotNull);
-    });
-
     await tester.tap(find.byKey(const Key('timer-save')));
+    await pumpBoth(tester);
     await settle(tester);
     expect(find.byKey(const Key('timer-clock')), findsNothing);
     expect(find.text('DSA learning'), findsWidgets);
