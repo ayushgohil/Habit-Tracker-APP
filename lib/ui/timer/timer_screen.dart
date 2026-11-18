@@ -3,10 +3,15 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/day.dart';
+import '../../core/goals.dart';
 import '../../core/timer.dart';
 import '../../data/database.dart';
 import '../../data/providers.dart';
 import '../../theme/ember_theme.dart';
+
+/// Sessions longer than this (4 hours) ask for confirmation before saving.
+const longSessionSeconds = 4 * 3600;
 
 /// Full-screen timer for a timed habit.
 class TimerScreen extends ConsumerStatefulWidget {
@@ -42,8 +47,10 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
   Widget build(BuildContext context) {
     final habits = ref.watch(allHabitsProvider).valueOrNull;
     final timers = ref.watch(timersProvider).valueOrNull;
+    final completions = ref.watch(completionsProvider).valueOrNull;
+    final goals = ref.watch(goalsProvider).valueOrNull;
     final habit = habits?.where((h) => h.id == widget.habitId).firstOrNull;
-    if (habits == null || timers == null || habit == null) {
+    if (habits == null || timers == null || completions == null || goals == null || habit == null) {
       _syncTicker(false);
       return Scaffold(
         appBar: AppBar(),
@@ -57,10 +64,21 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
 
     final now = DateTime.now();
     final elapsed = state.elapsedSeconds(now);
-    final target = habit.targetDurationSeconds;
+    // The goal and what is already logged are for the day the timer belongs
+    // to (the day it started, or today), so the ring starts from time that is
+    // already counted.
+    final day = row?.day ?? dayKey(now);
+    final logged = completions
+            .where((c) => c.habitId == habit.id && c.day == day)
+            .firstOrNull
+            ?.amount ??
+        0;
+    final target = timelineFor(habit, goals).targetOn(parseDayKey(day));
+    final total = logged + elapsed;
     final color = Color(habit.colorValue);
     final actions = ref.read(habitActionsProvider);
-    final reached = target > 0 && elapsed >= target;
+    final reached = target > 0 && total >= target;
+    final over = reached ? total - target : 0;
 
     return Scaffold(
       appBar: AppBar(title: Text(habit.name, overflow: TextOverflow.ellipsis)),
@@ -78,7 +96,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
                   children: [
                     SizedBox.expand(
                       child: CircularProgressIndicator(
-                        value: state.progress(now, target),
+                        value: target <= 0 ? 0.0 : (total / target).clamp(0.0, 1.0).toDouble(),
                         strokeWidth: 12,
                         strokeCap: StrokeCap.round,
                         backgroundColor: EmberColors.track,
@@ -95,9 +113,18 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          reached ? 'Goal reached' : 'Goal ${formatClock(target)}',
+                          reached
+                              ? (over > 0 ? 'Goal reached · +${formatClock(over)} over' : 'Goal reached')
+                              : 'Goal ${formatClock(target)}',
+                          key: const Key('timer-goal'),
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: EmberColors.textMuted),
                         ),
+                        if (logged > 0)
+                          Text(
+                            '${formatClock(logged)} already logged',
+                            key: const Key('timer-logged'),
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: EmberColors.textMuted),
+                          ),
                       ],
                     ),
                   ],
@@ -121,6 +148,22 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
                     onPressed: () async {
                       final navigator = Navigator.of(context);
                       final messenger = ScaffoldMessenger.of(context);
+                      // A timer left running by mistake would save hours that
+                      // were never worked, so ask before saving a very long one.
+                      if (elapsed > longSessionSeconds) {
+                        final ok = await showDialog<bool>(
+                          context: context,
+                          builder: (dialogContext) => AlertDialog(
+                            title: const Text('Save a very long session?'),
+                            content: Text('This timer has run for ${formatClock(elapsed)}. Save all of it?'),
+                            actions: [
+                              TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Cancel')),
+                              FilledButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('Save')),
+                            ],
+                          ),
+                        );
+                        if (ok != true) return;
+                      }
                       final seconds = await actions.finishTimer(habit.id);
                       messenger.showSnackBar(SnackBar(
                         content: Text(seconds > 0 ? '${habit.name}: ${formatClock(seconds)} saved' : 'Nothing to save yet'),

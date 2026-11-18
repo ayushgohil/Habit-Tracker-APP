@@ -44,6 +44,7 @@ void main() {
     );
     await container.read(habitsProvider.future);
     await container.read(completionsProvider.future);
+    await container.read(goalsProvider.future);
 
     final today = container.read(todayProvider.notifier);
 

@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/day.dart';
+import '../core/goals.dart';
 import '../core/streak.dart';
 import 'database.dart';
 import '../notifications/habit_notification_service.dart';
@@ -16,49 +17,31 @@ final habitsProvider = StreamProvider<List<Habit>>((ref) => ref.watch(databasePr
 final pausedHabitsProvider = StreamProvider<List<Habit>>((ref) => ref.watch(databaseProvider).watchPausedHabits());
 final archivedHabitsProvider = StreamProvider<List<Habit>>((ref) => ref.watch(databaseProvider).watchArchivedHabits());
 final allHabitsProvider = StreamProvider<List<Habit>>((ref) => ref.watch(databaseProvider).watchAllHabits());
+final goalsProvider = StreamProvider<List<HabitGoal>>((ref) => ref.watch(databaseProvider).watchGoals());
 final timersProvider = StreamProvider<List<ActiveTimer>>((ref) => ref.watch(databaseProvider).watchTimers());
 final completionsProvider =StreamProvider<List<Completion>>((ref) => ref.watch(databaseProvider).watchAllCompletions());
 
 class HabitView {
-  const HabitView({required this.habit, required this.countToday, required this.stats, required this.schedule});
+  const HabitView({
+    required this.habit,
+    required this.countToday,
+    required this.stats,
+    required this.schedule,
+    required this.target,
+  });
   final Habit habit;
   final int countToday;
   final HabitStats stats;
   final Schedule schedule;
+
+  /// What counts as done on the viewed day (the goal in force on that day).
+  final int target;
   Streak get streak => stats.currentStreak;
-  int get target => habit.taskType == HabitTaskType.timed.index ? habit.targetDurationSeconds : habit.dailyTarget;
   bool get isDone => countToday >= target;
   double get progress => target <= 0 ? 0 : (countToday / target).clamp(0.0, 1.0).toDouble();
 }
 
-final habitViewsProvider = Provider<AsyncValue<List<HabitView>>>((ref) {
-  final selectedDay = ref.watch(todayProvider);
-  final h = ref.watch(habitsProvider);
-  final c = ref.watch(completionsProvider);
-  final error = h.error ?? c.error;
-  if (error != null) return AsyncValue.error(error, StackTrace.current);
-  final habits = h.valueOrNull;
-  final completions = c.valueOrNull;
-  if (habits == null || completions == null) return const AsyncValue.loading();
-  final byHabit = <int, Map<String, int>>{};
-  for (final item in completions) {
-    (byHabit[item.habitId] ??= {})[item.day] = item.amount;
-  }
-  final selectedKey = dayKey(selectedDay);
-  return AsyncValue.data([
-    for (final habit in habits)
-      // A habit doesn't exist on days before it started.
-      if (hasStartedBy(habit.createdAt, selectedDay))
-        _view(habit, byHabit[habit.id] ?? const {}, selectedDay, selectedKey),
-  ]);
-});
-
-/// The share (0 to 1) of the daily target reached on each logged day.
-Map<String, double> dayProgressOf(Map<String, int> amounts, int target) => {
-      for (final e in amounts.entries) e.key: target <= 0 ? 0.0 : (e.value / target).clamp(0.0, 1.0).toDouble(),
-    };
-
-/// What counts as "done" for a habit on one day.
+/// What counts as "done" for a habit right now, from the habit's own columns.
 int targetForHabit(Habit habit) =>
     habit.taskType == HabitTaskType.timed.index ? habit.targetDurationSeconds : habit.dailyTarget;
 
@@ -71,39 +54,108 @@ Schedule scheduleForHabit(Habit habit) => Schedule(
       anchorDate: habit.createdAt,
     );
 
-/// Everything the stats screen needs about one habit, as of [today].
+/// The goals a habit has had over time. A habit with no recorded goals (which
+/// should not happen) falls back to its current settings for every day.
+GoalTimeline timelineFor(Habit habit, Iterable<HabitGoal> goals) {
+  final mine = goals.where((g) => g.habitId == habit.id).toList();
+  if (mine.isEmpty) {
+    return GoalTimeline.single(target: targetForHabit(habit), schedule: scheduleForHabit(habit));
+  }
+  return GoalTimeline([
+    for (final g in mine)
+      GoalVersion(
+        from: g.effectiveFrom,
+        target: g.target,
+        schedule: Schedule(
+          type: ScheduleType.values[g.scheduleType],
+          weekdayMask: g.weekdayMask,
+          timesPerWeek: g.timesPerWeek,
+          intervalDays: g.intervalDays,
+          periodTarget: g.periodTarget,
+          anchorDate: habit.createdAt,
+        ),
+      ),
+  ]);
+}
+
+HabitStats _statsFor(Habit habit, GoalTimeline timeline, Map<String, int> amounts, DateTime today) {
+  return calculateHabitStats(
+    // Periods are laid out with the current schedule. Each day is judged
+    // against the goal that applied on that day.
+    schedule: timeline.latest.schedule,
+    doneDays: timeline.doneDays(amounts),
+    createdAt: habit.createdAt,
+    today: today,
+    taskType: HabitTaskType.values[habit.taskType],
+    twoDayRule: habit.twoDayRule,
+    dayProgress: timeline.progressByDay(amounts),
+  );
+}
+
+final habitViewsProvider = Provider<AsyncValue<List<HabitView>>>((ref) {
+  final selectedDay = ref.watch(todayProvider);
+  final h = ref.watch(habitsProvider);
+  final c = ref.watch(completionsProvider);
+  final g = ref.watch(goalsProvider);
+  final error = h.error ?? c.error ?? g.error;
+  if (error != null) return AsyncValue.error(error, StackTrace.current);
+  final habits = h.valueOrNull;
+  final completions = c.valueOrNull;
+  final goals = g.valueOrNull;
+  if (habits == null || completions == null || goals == null) return const AsyncValue.loading();
+  final byHabit = <int, Map<String, int>>{};
+  for (final item in completions) {
+    (byHabit[item.habitId] ??= {})[item.day] = item.amount;
+  }
+  final selectedKey = dayKey(selectedDay);
+  return AsyncValue.data([
+    for (final habit in habits)
+      // A habit doesn't exist on days before it started.
+      if (hasStartedBy(habit.createdAt, selectedDay))
+        _view(habit, timelineFor(habit, goals), byHabit[habit.id] ?? const {}, selectedDay, selectedKey),
+  ]);
+});
+
+HabitView _view(Habit habit, GoalTimeline timeline, Map<String, int> amounts, DateTime day, String key) {
+  return HabitView(
+    habit: habit,
+    countToday: amounts[key] ?? 0,
+    stats: _statsFor(habit, timeline, amounts, day),
+    schedule: timeline.scheduleOn(day),
+    target: timeline.targetOn(day),
+  );
+}
+
+/// Everything the stats screen needs about one habit, as of today.
 class HabitHistory {
   const HabitHistory({
     required this.habit,
     required this.amounts,
     required this.stats,
-    required this.schedule,
-    required this.target,
+    required this.timeline,
   });
   final Habit habit;
   final Map<String, int> amounts;
   final HabitStats stats;
-  final Schedule schedule;
-  final int target;
+  final GoalTimeline timeline;
 
-  Set<String> get doneDays => {for (final e in amounts.entries) if (e.value >= target) e.key};
+  /// The goal now.
+  Schedule get schedule => timeline.latest.schedule;
+  int get target => timeline.latest.target;
+  int targetOn(DateTime day) => timeline.targetOn(day);
+  Schedule scheduleOn(DateTime day) => timeline.scheduleOn(day);
+
+  Set<String> get doneDays => timeline.doneDays(amounts);
   int get totalDone => doneDays.length;
 }
 
-HabitHistory buildHistory(Habit habit, Map<String, int> amounts, DateTime today) {
-  final target = targetForHabit(habit);
-  final schedule = scheduleForHabit(habit);
-  final doneDays = <String>{for (final e in amounts.entries) if (e.value >= target) e.key};
-  final stats = calculateHabitStats(
-    schedule: schedule,
-    doneDays: doneDays,
-    createdAt: habit.createdAt,
-    today: today,
-    taskType: HabitTaskType.values[habit.taskType],
-    twoDayRule: habit.twoDayRule,
-    dayProgress: dayProgressOf(amounts, target),
+HabitHistory buildHistory(Habit habit, GoalTimeline timeline, Map<String, int> amounts, DateTime today) {
+  return HabitHistory(
+    habit: habit,
+    amounts: amounts,
+    stats: _statsFor(habit, timeline, amounts, today),
+    timeline: timeline,
   );
-  return HabitHistory(habit: habit, amounts: amounts, stats: stats, schedule: schedule, target: target);
 }
 
 /// Live history for one habit (by id). Null while loading or if it is gone.
@@ -111,30 +163,15 @@ final habitHistoryProvider = Provider.family<HabitHistory?, int>((ref, id) {
   final today = startOfDay(DateTime.now());
   final habits = ref.watch(allHabitsProvider).valueOrNull;
   final completions = ref.watch(completionsProvider).valueOrNull;
-  if (habits == null || completions == null) return null;
+  final goals = ref.watch(goalsProvider).valueOrNull;
+  if (habits == null || completions == null || goals == null) return null;
   final matches = habits.where((h) => h.id == id);
   if (matches.isEmpty) return null;
   final amounts = <String, int>{
     for (final c in completions) if (c.habitId == id) c.day: c.amount,
   };
-  return buildHistory(matches.first, amounts, today);
+  return buildHistory(matches.first, timelineFor(matches.first, goals), amounts, today);
 });
-
-HabitView _view(Habit habit, Map<String, int> amounts, DateTime day, String key) {
-  final target = targetForHabit(habit);
-  final schedule = scheduleForHabit(habit);
-  final doneDays = <String>{for (final e in amounts.entries) if (e.value >= target) e.key};
-  final stats = calculateHabitStats(
-    schedule: schedule,
-    doneDays: doneDays,
-    createdAt: habit.createdAt,
-    today: day,
-    taskType: HabitTaskType.values[habit.taskType],
-    twoDayRule: habit.twoDayRule,
-    dayProgress: dayProgressOf(amounts, target),
-  );
-  return HabitView(habit: habit, countToday: amounts[key] ?? 0, stats: stats, schedule: schedule);
-}
 
 class HabitActions {
   HabitActions(this._db);
@@ -178,7 +215,10 @@ class HabitActions {
     required bool reminderEnabled, required int reminderHour, required int reminderMinute,
     required bool partialNudgeEnabled, required int partialNudgeHour, required int partialNudgeMinute,
     DateTime? startDate,
-  }) => _db.updateHabit(id, HabitsCompanion(
+    bool applyToWholeHistory = false,
+  }) async {
+    final before = await (_db.select(_db.habits)..where((h) => h.id.equals(id))).getSingleOrNull();
+    await _db.updateHabit(id, HabitsCompanion(
     name: Value(name), iconKey: Value(iconKey), colorValue: Value(colorValue),
     createdAt: startDate == null ? const Value.absent() : Value(startDate),
     scheduleType: Value(schedule.type.index), weekdayMask: Value(schedule.weekdayMask),
@@ -188,7 +228,24 @@ class HabitActions {
     targetDurationSeconds: Value(targetDurationSeconds),
     reminderEnabled: Value(reminderEnabled), reminderHour: Value(reminderHour), reminderMinute: Value(reminderMinute),
     partialNudgeEnabled: Value(partialNudgeEnabled), partialNudgeHour: Value(partialNudgeHour), partialNudgeMinute: Value(partialNudgeMinute),
-  ));
+    ));
+    if (before == null) return;
+    final goalChanged = before.taskType != taskType.index ||
+        targetForHabit(before) != (taskType == HabitTaskType.timed ? targetDurationSeconds : dailyTarget) ||
+        before.scheduleType != schedule.type.index ||
+        before.weekdayMask != schedule.weekdayMask ||
+        before.timesPerWeek != schedule.timesPerWeek ||
+        before.intervalDays != schedule.intervalDays ||
+        before.periodTarget != schedule.periodTarget;
+    if (!goalChanged) return;
+    if (applyToWholeHistory) {
+      await _db.collapseGoals(id);
+    } else {
+      // Past days keep the goal they had; the new one starts today.
+      await _db.recordGoalFrom(id, dayKey(DateTime.now()));
+    }
+  }
+
   Future<void> _syncReminder(int id) async {
     final habit = await (_db.select(_db.habits)..where((h) => h.id.equals(id))).getSingleOrNull();
     if (habit == null) {
@@ -204,8 +261,20 @@ class HabitActions {
     if (timer == null || habit == null) {
       await HabitNotificationService.instance.cancelTimer(habitId);
     } else {
-      await HabitNotificationService.instance.showTimer(habit, AppDatabase.stateOf(timer));
+      await HabitNotificationService.instance.showTimer(
+        habit,
+        AppDatabase.stateOf(timer),
+        secondsUntilGoal: await _db.secondsUntilGoal(habitId, DateTime.now()),
+      );
     }
+  }
+
+  /// Saves what a running or paused timer has counted and removes it. Used
+  /// when a habit is archived or paused, so no time is lost.
+  Future<void> _endTimer(int habitId) async {
+    if (await _db.getTimer(habitId) == null) return;
+    await _db.finishTimer(habitId, DateTime.now());
+    await _syncTimerNotification(habitId);
   }
 
   /// Starts a timer, or resumes a paused one.
@@ -232,6 +301,7 @@ class HabitActions {
   }
 
   Future<void> archive(int id) async {
+    await _endTimer(id);
     await _db.archiveHabit(id);
     await _syncReminder(id);
   }
@@ -242,6 +312,7 @@ class HabitActions {
   }
 
   Future<void> pause(int id) async {
+    await _endTimer(id);
     await _db.pauseHabit(id);
     await _syncReminder(id);
   }

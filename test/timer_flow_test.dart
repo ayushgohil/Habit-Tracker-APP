@@ -29,6 +29,7 @@ Future<void> pumpBoth(WidgetTester tester, {int rounds = 6}) async {
 Future<(AppDatabase, int)> startApp(
   WidgetTester tester, {
   bool pausedTimer = false,
+  int loggedSeconds = 0,
 }) async {
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = const Size(411, 900);
@@ -45,6 +46,11 @@ Future<(AppDatabase, int)> startApp(
       ),
     ),
   );
+  if (loggedSeconds > 0) {
+    await tester.runAsync(
+      () => db.setCompletion(habitId: id!, day: dayKey(DateTime.now()), amount: loggedSeconds),
+    );
+  }
   if (pausedTimer) {
     // Seed before the app opens: writing through a database that the running
     // app is already watching from inside runAsync stalls the test.
@@ -137,6 +143,58 @@ void main() {
     expect(find.text('DSA learning'), findsWidgets);
     expect(await tester.runAsync(() => db.getTimer(id)), isNull);
 
+    await shutDown(tester, db);
+  });
+
+  test('seconds until the goal count what is already logged', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final id = await db.insertHabit(
+      HabitsCompanion.insert(
+        name: 'Study',
+        iconKey: 'book',
+        colorValue: 0xFFFF6B2C,
+        taskType: Value(HabitTaskType.timed.index),
+        targetDurationSeconds: const Value(3600),
+      ),
+    );
+    final now = DateTime.now();
+    await db.setCompletion(habitId: id, day: dayKey(now), amount: 1800);
+    expect(await db.secondsUntilGoal(id, now), isNull); // no timer yet
+
+    await db.startTimer(id, now);
+    expect(await db.secondsUntilGoal(id, now), 1800);
+    expect(await db.secondsUntilGoal(id, now.add(const Duration(minutes: 10))), 1200);
+    expect(await db.secondsUntilGoal(id, now.add(const Duration(minutes: 31))), isNull);
+
+    await db.pauseTimer(id, now.add(const Duration(minutes: 5)));
+    expect(await db.secondsUntilGoal(id, now.add(const Duration(minutes: 5))), isNull);
+    await db.close();
+  });
+
+  test('archiving a habit saves its running timer and removes it', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final id = await db.insertHabit(
+      HabitsCompanion.insert(
+        name: 'Study',
+        iconKey: 'book',
+        colorValue: 0xFFFF6B2C,
+        taskType: Value(HabitTaskType.timed.index),
+      ),
+    );
+    await db.startTimer(id, DateTime.now().subtract(const Duration(minutes: 7)));
+    await HabitActions(db).archive(id);
+    expect(await db.getTimer(id), isNull);
+    final rows = await db.select(db.completions).get();
+    expect(rows.single.amount, greaterThanOrEqualTo(7 * 60));
+    await db.close();
+  });
+
+  testWidgets('the ring starts from time already logged today', timeout: const Timeout(Duration(seconds: 45)), (tester) async {
+    final (db, id) = await startApp(tester, pausedTimer: true, loggedSeconds: 1500);
+    await tester.tap(find.byKey(Key('timer-banner-$id')));
+    await pumpBoth(tester);
+    expect(find.text('25:00 already logged'), findsOneWidget);
+    expect(find.text('Goal 30:00'), findsOneWidget);
     await shutDown(tester, db);
   });
 

@@ -92,14 +92,39 @@ class ActiveTimers extends Table {
   Set<Column> get primaryKey => {habitId};
 }
 
-@DriftDatabase(tables: [Habits, Completions, DayNotes, ActiveTimers])
+/// The goal and schedule a habit has had, each from the day it took effect.
+/// The row with the latest [effectiveFrom] not after a day is the goal for that
+/// day, so changing a goal never rewrites past days.
+class HabitGoals extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get habitId =>
+      integer().references(Habits, #id, onDelete: KeyAction.cascade)();
+
+  /// Local calendar day (`yyyy-MM-dd`) this goal starts to apply.
+  TextColumn get effectiveFrom => text().withLength(min: 10, max: 10)();
+
+  /// Taps for a normal habit, seconds for a timed one.
+  IntColumn get target => integer()();
+  IntColumn get scheduleType => integer().withDefault(const Constant(0))();
+  IntColumn get weekdayMask => integer().withDefault(const Constant(127))();
+  IntColumn get timesPerWeek => integer().withDefault(const Constant(7))();
+  IntColumn get intervalDays => integer().withDefault(const Constant(2))();
+  IntColumn get periodTarget => integer().withDefault(const Constant(1))();
+
+  @override
+  List<Set<Column>> get uniqueKeys => [
+        {habitId, effectiveFrom},
+      ];
+}
+
+@DriftDatabase(tables: [Habits, Completions, DayNotes, ActiveTimers, HabitGoals])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -125,6 +150,13 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 5) {
             await m.createTable(activeTimers);
+          }
+          if (from < 6) {
+            await m.createTable(habitGoals);
+            // Every existing habit starts with one goal: what it has now.
+            for (final habit in await select(habits).get()) {
+              await into(habitGoals).insert(_goalFor(habit, dayKey(habit.createdAt)));
+            }
           }
         },
         beforeOpen: (details) async {
@@ -154,7 +186,49 @@ class AppDatabase extends _$AppDatabase {
 
   Stream<List<Completion>> watchAllCompletions() => select(completions).watch();
 
-  Future<int> insertHabit(HabitsCompanion entry) => into(habits).insert(entry);
+  Future<int> insertHabit(HabitsCompanion entry) {
+    return transaction(() async {
+      final id = await into(habits).insert(entry);
+      final habit = await (select(habits)..where((h) => h.id.equals(id))).getSingle();
+      await into(habitGoals).insert(_goalFor(habit, dayKey(habit.createdAt)));
+      return id;
+    });
+  }
+
+  static HabitGoalsCompanion _goalFor(Habit habit, String from) => HabitGoalsCompanion(
+        habitId: Value(habit.id),
+        effectiveFrom: Value(from),
+        target: Value(habit.taskType == 2 ? habit.targetDurationSeconds : habit.dailyTarget),
+        scheduleType: Value(habit.scheduleType),
+        weekdayMask: Value(habit.weekdayMask),
+        timesPerWeek: Value(habit.timesPerWeek),
+        intervalDays: Value(habit.intervalDays),
+        periodTarget: Value(habit.periodTarget),
+      );
+
+  Stream<List<HabitGoal>> watchGoals() => select(habitGoals).watch();
+
+  /// Records the habit's current goal as applying from [from] onwards. Days
+  /// before [from] keep the goal they had. A change on the same day replaces
+  /// that day's entry.
+  Future<void> recordGoalFrom(int habitId, String from) async {
+    final habit = await (select(habits)..where((h) => h.id.equals(habitId))).getSingleOrNull();
+    if (habit == null) return;
+    await into(habitGoals).insert(
+      _goalFor(habit, from),
+      onConflict: DoUpdate((old) => _goalFor(habit, from), target: [habitGoals.habitId, habitGoals.effectiveFrom]),
+    );
+  }
+
+  /// Makes the habit's current goal apply to its whole history.
+  Future<void> collapseGoals(int habitId) {
+    return transaction(() async {
+      final habit = await (select(habits)..where((h) => h.id.equals(habitId))).getSingleOrNull();
+      if (habit == null) return;
+      await (delete(habitGoals)..where((g) => g.habitId.equals(habitId))).go();
+      await into(habitGoals).insert(_goalFor(habit, dayKey(habit.createdAt)));
+    });
+  }
 
   Future<void> updateHabit(int id, HabitsCompanion changes) async {
     await (update(habits)..where((h) => h.id.equals(id))).write(changes);
@@ -240,6 +314,21 @@ class AppDatabase extends _$AppDatabase {
         runningSince: const Value(null),
       ),
     );
+  }
+
+  /// Seconds until a running timer reaches the habit's goal for the day it was
+  /// started, counting what was already logged that day. Null if no timer is
+  /// running or the goal is already reached.
+  Future<int?> secondsUntilGoal(int habitId, DateTime now) async {
+    final timer = await getTimer(habitId);
+    if (timer == null || timer.runningSince == null) return null;
+    final habit = await (select(habits)..where((h) => h.id.equals(habitId))).getSingleOrNull();
+    if (habit == null || habit.taskType != 2) return null;
+    final logged = await (select(completions)
+          ..where((c) => c.habitId.equals(habitId) & c.day.equals(timer.day)))
+        .getSingleOrNull();
+    final remaining = habit.targetDurationSeconds - (logged?.amount ?? 0) - stateOf(timer).elapsedSeconds(now);
+    return remaining > 0 ? remaining : null;
   }
 
   Future<void> discardTimer(int habitId) =>
