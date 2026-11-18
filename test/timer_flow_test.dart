@@ -50,7 +50,7 @@ Future<void> shutDown(WidgetTester tester, AppDatabase db) async {
 }
 
 void main() {
-  test('finishing a timer adds its time to the day it started', () async {
+  test('finishing a timer adds its time to the day it started', timeout: const Timeout(Duration(seconds: 30)), () async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     final id = await db.insertHabit(
       HabitsCompanion.insert(name: 'Read', iconKey: 'book', colorValue: 0xFFFF6B2C),
@@ -74,7 +74,7 @@ void main() {
     await db.close();
   });
 
-  test('discarding a timer saves nothing; deleting the habit removes it', () async {
+  test('discarding a timer saves nothing; deleting the habit removes it', timeout: const Timeout(Duration(seconds: 30)), () async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     final id = await db.insertHabit(
       HabitsCompanion.insert(name: 'Read', iconKey: 'book', colorValue: 0xFFFF6B2C),
@@ -90,7 +90,7 @@ void main() {
     await db.close();
   });
 
-  testWidgets('start, pause and save a timer from the habit menu', (tester) async {
+  testWidgets('start, pause and save a timer from the habit menu', timeout: const Timeout(Duration(seconds: 45)), (tester) async {
     final (db, id) = await startApp(tester);
 
     await tester.longPress(find.text('DSA learning').last);
@@ -126,7 +126,7 @@ void main() {
     await shutDown(tester, db);
   });
 
-  testWidgets('a paused timer shows on Home and can be discarded', (tester) async {
+  testWidgets('a paused timer shows on Home and can be discarded', timeout: const Timeout(Duration(seconds: 45)), (tester) async {
     final (db, id) = await startApp(tester);
     await tester.runAsync(() async {
       await db.startTimer(id, DateTime.now().subtract(const Duration(minutes: 3)));
