@@ -26,7 +26,10 @@ Future<void> pumpBoth(WidgetTester tester, {int rounds = 6}) async {
   }
 }
 
-Future<(AppDatabase, int)> startApp(WidgetTester tester) async {
+Future<(AppDatabase, int)> startApp(
+  WidgetTester tester, {
+  bool pausedTimer = false,
+}) async {
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = const Size(411, 900);
   addTearDown(tester.view.reset);
@@ -42,6 +45,14 @@ Future<(AppDatabase, int)> startApp(WidgetTester tester) async {
       ),
     ),
   );
+  if (pausedTimer) {
+    // Seed before the app opens: writing through a database that the running
+    // app is already watching from inside runAsync stalls the test.
+    await tester.runAsync(() async {
+      await db.startTimer(id!, DateTime.now().subtract(const Duration(minutes: 3)));
+      await db.pauseTimer(id, DateTime.now());
+    });
+  }
   await tester.pumpWidget(
     ProviderScope(
       overrides: [databaseProvider.overrideWithValue(db)],
@@ -130,48 +141,19 @@ void main() {
   });
 
   testWidgets('a paused timer shows on Home and can be discarded', timeout: const Timeout(Duration(seconds: 45)), (tester) async {
-    final (db, id) = await startApp(tester);
-    await tester.runAsync(() async {
-    // ignore: avoid_print
-    print('TIMERTEST step 1');
-      await db.startTimer(id, DateTime.now().subtract(const Duration(minutes: 3)));
-      await db.pauseTimer(id, DateTime.now());
-    });
-    await settle(tester);
-    // ignore: avoid_print
-    print('TIMERTEST step 2');
+    final (db, id) = await startApp(tester, pausedTimer: true);
 
     expect(find.byKey(Key('timer-banner-$id')), findsOneWidget);
-    // ignore: avoid_print
-    print('TIMERTEST step 3');
     await tester.tap(find.byKey(Key('timer-banner-$id')));
-    // ignore: avoid_print
-    print('TIMERTEST step 4');
     await pumpBoth(tester);
-    // ignore: avoid_print
-    print('TIMERTEST step 5');
     expect(find.text('Resume'), findsOneWidget);
-    // ignore: avoid_print
-    print('TIMERTEST step 6');
 
     await tester.tap(find.byKey(const Key('timer-discard')));
-    // ignore: avoid_print
-    print('TIMERTEST step 7');
     await pumpBoth(tester);
-    // ignore: avoid_print
-    print('TIMERTEST step 8');
     await settle(tester);
-    // ignore: avoid_print
-    print('TIMERTEST step 9');
     expect(find.byKey(Key('timer-banner-$id')), findsNothing);
-    // ignore: avoid_print
-    print('TIMERTEST step 10');
     expect(await tester.runAsync(() => db.getTimer(id)), isNull);
-    // ignore: avoid_print
-    print('TIMERTEST step 11');
 
     await shutDown(tester, db);
-    // ignore: avoid_print
-    print('TIMERTEST step 12');
   });
 }
