@@ -1,0 +1,49 @@
+name: Create signing key
+
+# Run this ONCE by hand (Actions tab -> Create signing key -> Run workflow).
+# It makes the key that every Ember APK is signed with, so a new APK can
+# update the one already installed on your phone. See README, "Signing".
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  create:
+    name: Create signing key
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Generate keystore and secrets file
+        run: |
+          set -euo pipefail
+          PASS="$(openssl rand -hex 16)"
+          keytool -genkeypair -storetype PKCS12 \
+            -keystore ember-signing.jks -alias ember \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass "$PASS" -keypass "$PASS" \
+            -dname "CN=Ember, O=Ayush Gohil, C=IN"
+          {
+            echo "ANDROID_KEYSTORE_BASE64=$(base64 -w0 ember-signing.jks)"
+            echo "KEYSTORE_PASSWORD=$PASS"
+            echo "KEY_ALIAS=ember"
+            echo "KEY_PASSWORD=$PASS"
+          } > ember-signing-secrets.txt
+
+      - name: Upload key (download it, then delete the artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ember-signing-key
+          path: |
+            ember-signing.jks
+            ember-signing-secrets.txt
+          retention-days: 1
+          if-no-files-found: error

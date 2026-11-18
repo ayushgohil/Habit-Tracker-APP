@@ -45,6 +45,31 @@ flutter test
 
 Re-run step 3 whenever you change `lib/data/database.dart`.
 
+## Signing (so a new APK can update the installed one)
+
+Android only lets an APK update an installed app when both are signed with the
+same key. Without a key configured, every CI build is signed with a different
+throwaway key, so installing a newer build over the old one fails with
+"App not installed as package conflicts with an existing package".
+
+One-time setup:
+
+1. Actions tab -> **Create signing key** -> **Run workflow**.
+2. When it finishes, download the `ember-signing-key` artifact. It holds
+   `ember-signing.jks` (the key) and `ember-signing-secrets.txt`.
+3. Repo **Settings -> Secrets and variables -> Actions -> New repository secret**.
+   Add four secrets, copying each value from `ember-signing-secrets.txt`:
+   `ANDROID_KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`.
+4. Keep a copy of `ember-signing.jks` and the passwords somewhere safe (a
+   password manager). If you lose them you can never update installed copies
+   again. Then delete the artifact from the workflow run.
+5. Push or re-run the build. The "Show signing certificate" step prints the
+   certificate fingerprint; it must be identical on every build.
+
+Builds made before this setup are signed with other keys, so uninstall the old
+app once (make a backup first: Back up & restore) before installing the first
+signed build. After that, updates install over the top.
+
 ## Project layout
 
 ```
