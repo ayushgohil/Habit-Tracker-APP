@@ -62,10 +62,9 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
       });
 
   Future<void> _restore() => _run(() async {
-        final picked = await FilePicker.platform.pickFiles(withData: true);
-        final bytes = picked?.files.single.bytes;
-        if (picked == null) return;
-        if (bytes == null) throw BackupException('Could not read that file.');
+        final picked = await FilePicker.pickFiles();
+        if (picked.isEmpty) return;
+        final bytes = await picked.first.readAsBytes();
         final text = utf8.decode(bytes, allowMalformed: true);
         if (!mounted) return;
         final ok = await showDialog<bool>(
