@@ -144,6 +144,7 @@ void main() {
 
     await tester.tap(find.byKey(const Key('timer-discard')));
     await pumpBoth(tester);
+    await settle(tester);
     expect(find.byKey(Key('timer-banner-$id')), findsNothing);
     expect(await tester.runAsync(() => db.getTimer(id)), isNull);
 
