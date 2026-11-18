@@ -7,6 +7,7 @@ import 'package:timezone/data/latest_all.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../core/day.dart';
+import '../core/timer.dart';
 import '../data/database.dart';
 
 class HabitNotificationService {
@@ -151,15 +152,102 @@ class HabitNotificationService {
   static int _notificationId(int habitId, int weekday, bool nudge) =>
       habitId * 100 + (nudge ? 50 : 0) + weekday + 1;
 
-  static Future<void> _handleResponse(NotificationResponse response) async {
-    if (response.actionId == 'done') await _markHabitDone(response.payload);
+  // ---- Timers -------------------------------------------------------------
+
+  static const _timerChannelId = 'habit_timer';
+  static const _timerChannelName = 'Habit timers';
+  static const _timerPayloadPrefix = 'timer:';
+
+  static int _timerNotificationId(int habitId) => 900000 + habitId;
+
+  /// Shows (or refreshes) the ongoing notification for a habit's timer. While
+  /// running the system draws a live clock, so the app does not need to wake up
+  /// every second.
+  Future<void> showTimer(Habit habit, TimerState timer) => _safely(() async {
+        await initialize();
+        final now = DateTime.now();
+        final elapsed = timer.elapsedSeconds(now);
+        final running = timer.isRunning;
+        final startMs = now.millisecondsSinceEpoch - elapsed * 1000;
+        await _plugin.show(
+          _timerNotificationId(habit.id),
+          habit.name,
+          running ? 'Timer running' : 'Paused at ${formatClock(elapsed)}',
+          NotificationDetails(
+            android: AndroidNotificationDetails(
+              _timerChannelId,
+              _timerChannelName,
+              channelDescription: 'Shows a timer that is running for a habit.',
+              importance: Importance.low,
+              priority: Priority.low,
+              ongoing: true,
+              autoCancel: false,
+              onlyAlertOnce: true,
+              showWhen: running,
+              when: startMs,
+              usesChronometer: running,
+              category: AndroidNotificationCategory.stopwatch,
+              actions: [
+                AndroidNotificationAction(running ? 'timer_pause' : 'timer_resume', running ? 'Pause' : 'Resume', showsUserInterface: false),
+                const AndroidNotificationAction('timer_save', 'Save', showsUserInterface: false),
+              ],
+            ),
+          ),
+          payload: '$_timerPayloadPrefix${habit.id}',
+        );
+      });
+
+  Future<void> cancelTimer(int habitId) => _safely(() async {
+        await initialize();
+        await _plugin.cancel(_timerNotificationId(habitId));
+      });
+
+  static Future<void> _dispatch(NotificationResponse response) async {
+    final action = response.actionId;
+    final payload = response.payload ?? '';
+    if (action == 'done') {
+      await _markHabitDone(payload);
+    } else if (payload.startsWith(_timerPayloadPrefix) && action != null && action.startsWith('timer_')) {
+      await _timerAction(action, int.tryParse(payload.substring(_timerPayloadPrefix.length)));
+    }
   }
+
+  /// Handles Pause / Resume / Save pressed on the notification. This can run
+  /// while the app is closed, so it talks to the database directly.
+  static Future<void> _timerAction(String action, int? habitId) async {
+    if (habitId == null) return;
+    final db = AppDatabase();
+    try {
+      final now = DateTime.now();
+      switch (action) {
+        case 'timer_pause':
+          await db.pauseTimer(habitId, now);
+        case 'timer_resume':
+          await db.startTimer(habitId, now);
+        case 'timer_save':
+          await db.finishTimer(habitId, now);
+      }
+      final timer = await db.getTimer(habitId);
+      if (timer == null) {
+        await instance.cancelTimer(habitId);
+        return;
+      }
+      final habit = await (db.select(db.habits)..where((h) => h.id.equals(habitId))).getSingleOrNull();
+      if (habit != null) await instance.showTimer(habit, AppDatabase.stateOf(timer));
+    } catch (error) {
+      debugPrint('Ember timer: $error');
+    } finally {
+      await db.close();
+    }
+  }
+
+  static Future<void> _handleResponse(NotificationResponse response) => _dispatch(response);
 
   @pragma('vm:entry-point')
   static Future<void> habitNotificationBackground(NotificationResponse response) async {
     WidgetsFlutterBinding.ensureInitialized();
     DartPluginRegistrant.ensureInitialized();
-    if (response.actionId == 'done') await _markHabitDone(response.payload);
+    await _dispatch(response);
   }
 
   static Future<void> _markHabitDone(String? payload) async {

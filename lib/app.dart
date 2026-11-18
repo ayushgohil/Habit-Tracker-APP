@@ -41,12 +41,22 @@ class _EmberAppState extends ConsumerState<EmberApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) return;
     _syncReminders();
+    _refreshTimers();
     final today = startOfDay(DateTime.now());
     if (today == _lastToday) return;
     if (ref.read(todayProvider) == _lastToday) {
       ref.read(todayProvider.notifier).state = today;
     }
     _lastToday = today;
+  }
+
+  /// Notification buttons (Pause / Save) change the database from another
+  /// isolate, which the open app can't see, so re-read the timers on resume.
+  void _refreshTimers() {
+    try {
+      final db = ref.read(databaseProvider);
+      db.markTablesUpdated([db.activeTimers, db.completions]);
+    } catch (_) {}
   }
 
   Future<void> _syncReminders() async {

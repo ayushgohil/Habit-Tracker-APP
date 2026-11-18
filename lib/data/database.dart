@@ -5,6 +5,9 @@ import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../core/day.dart';
+import '../core/timer.dart';
+
 part 'database.g.dart';
 
 class DayNotes extends Table {
@@ -71,14 +74,32 @@ class Completions extends Table {
       ];
 }
 
-@DriftDatabase(tables: [Habits, Completions, DayNotes])
+/// A timer that is running or paused for a timed habit. At most one per habit.
+class ActiveTimers extends Table {
+  IntColumn get habitId =>
+      integer().references(Habits, #id, onDelete: KeyAction.cascade)();
+
+  /// The day (`yyyy-MM-dd`) the timer was started; the time is saved to it.
+  TextColumn get day => text().withLength(min: 10, max: 10)();
+
+  /// Seconds run before the last pause.
+  IntColumn get bankedSeconds => integer().withDefault(const Constant(0))();
+
+  /// When it last started running. Null while paused.
+  DateTimeColumn get runningSince => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {habitId};
+}
+
+@DriftDatabase(tables: [Habits, Completions, DayNotes, ActiveTimers])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -101,6 +122,9 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(habits, habits.partialNudgeEnabled);
             await m.addColumn(habits, habits.partialNudgeHour);
             await m.addColumn(habits, habits.partialNudgeMinute);
+          }
+          if (from < 5) {
+            await m.createTable(activeTimers);
           }
         },
         beforeOpen: (details) async {
@@ -180,6 +204,67 @@ class AppDatabase extends _$AppDatabase {
         target: [dayNotes.day],
       ),
     );
+  }
+
+  Stream<List<ActiveTimer>> watchTimers() => select(activeTimers).watch();
+
+  Future<ActiveTimer?> getTimer(int habitId) =>
+      (select(activeTimers)..where((t) => t.habitId.equals(habitId))).getSingleOrNull();
+
+  static TimerState stateOf(ActiveTimer row) =>
+      TimerState(bankedSeconds: row.bankedSeconds, runningSince: row.runningSince);
+
+  /// Starts a timer for [habitId], or resumes a paused one.
+  Future<void> startTimer(int habitId, DateTime now) async {
+    final existing = await getTimer(habitId);
+    if (existing == null) {
+      await into(activeTimers).insert(ActiveTimersCompanion.insert(
+        habitId: habitId,
+        day: dayKey(now),
+        runningSince: Value(now),
+      ));
+      return;
+    }
+    final next = stateOf(existing).start(now);
+    await (update(activeTimers)..where((t) => t.habitId.equals(habitId)))
+        .write(ActiveTimersCompanion(runningSince: Value(next.runningSince)));
+  }
+
+  Future<void> pauseTimer(int habitId, DateTime now) async {
+    final existing = await getTimer(habitId);
+    if (existing == null) return;
+    final next = stateOf(existing).pause(now);
+    await (update(activeTimers)..where((t) => t.habitId.equals(habitId))).write(
+      ActiveTimersCompanion(
+        bankedSeconds: Value(next.bankedSeconds),
+        runningSince: const Value(null),
+      ),
+    );
+  }
+
+  Future<void> discardTimer(int habitId) =>
+      (delete(activeTimers)..where((t) => t.habitId.equals(habitId))).go();
+
+  /// Adds the timer's time to the day it was started on and removes it.
+  /// Returns the seconds saved (0 if there was no timer).
+  Future<int> finishTimer(int habitId, DateTime now) {
+    return transaction(() async {
+      final existing = await getTimer(habitId);
+      if (existing == null) return 0;
+      final seconds = stateOf(existing).elapsedSeconds(now);
+      if (seconds > 0) {
+        final row = await (select(completions)
+              ..where((c) => c.habitId.equals(habitId) & c.day.equals(existing.day)))
+            .getSingleOrNull();
+        await setCompletion(
+          habitId: habitId,
+          day: existing.day,
+          amount: (row?.amount ?? 0) + seconds,
+        );
+      }
+      await discardTimer(habitId);
+      return seconds;
+    });
   }
 
   Future<void> setCompletion({

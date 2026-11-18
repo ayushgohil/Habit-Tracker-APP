@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/day.dart';
 import '../core/streak.dart';
+import '../core/timer.dart';
 import 'database.dart';
 import '../notifications/habit_notification_service.dart';
 
@@ -16,6 +17,7 @@ final habitsProvider = StreamProvider<List<Habit>>((ref) => ref.watch(databasePr
 final pausedHabitsProvider = StreamProvider<List<Habit>>((ref) => ref.watch(databaseProvider).watchPausedHabits());
 final archivedHabitsProvider = StreamProvider<List<Habit>>((ref) => ref.watch(databaseProvider).watchArchivedHabits());
 final allHabitsProvider = StreamProvider<List<Habit>>((ref) => ref.watch(databaseProvider).watchAllHabits());
+final timersProvider = StreamProvider<List<ActiveTimer>>((ref) => ref.watch(databaseProvider).watchTimers());
 final completionsProvider =StreamProvider<List<Completion>>((ref) => ref.watch(databaseProvider).watchAllCompletions());
 
 class HabitView {
@@ -190,6 +192,39 @@ class HabitActions {
     }
   }
 
+  Future<void> _syncTimerNotification(int habitId) async {
+    final timer = await _db.getTimer(habitId);
+    final habit = await (_db.select(_db.habits)..where((h) => h.id.equals(habitId))).getSingleOrNull();
+    if (timer == null || habit == null) {
+      await HabitNotificationService.instance.cancelTimer(habitId);
+    } else {
+      await HabitNotificationService.instance.showTimer(habit, AppDatabase.stateOf(timer));
+    }
+  }
+
+  /// Starts a timer, or resumes a paused one.
+  Future<void> startTimer(int habitId) async {
+    await _db.startTimer(habitId, DateTime.now());
+    await _syncTimerNotification(habitId);
+  }
+
+  Future<void> pauseTimer(int habitId) async {
+    await _db.pauseTimer(habitId, DateTime.now());
+    await _syncTimerNotification(habitId);
+  }
+
+  /// Saves the timer's time to its day. Returns the seconds saved.
+  Future<int> finishTimer(int habitId) async {
+    final seconds = await _db.finishTimer(habitId, DateTime.now());
+    await _syncTimerNotification(habitId);
+    return seconds;
+  }
+
+  Future<void> discardTimer(int habitId) async {
+    await _db.discardTimer(habitId);
+    await _syncTimerNotification(habitId);
+  }
+
   Future<void> archive(int id) async {
     await _db.archiveHabit(id);
     await _syncReminder(id);
@@ -213,6 +248,7 @@ class HabitActions {
   Future<void> delete(int id) async {
     await _db.deleteHabit(id);
     await HabitNotificationService.instance.cancelHabit(id);
+    await HabitNotificationService.instance.cancelTimer(id);
   }
 }
 final habitActionsProvider = Provider<HabitActions>((ref) => HabitActions(ref.watch(databaseProvider)));

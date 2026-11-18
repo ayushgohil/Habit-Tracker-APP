@@ -1,0 +1,149 @@
+import 'package:drift/drift.dart' show Value;
+import 'package:drift/native.dart';
+import 'package:ember/app.dart';
+import 'package:ember/core/day.dart';
+import 'package:ember/core/streak.dart';
+import 'package:ember/data/database.dart';
+import 'package:ember/data/providers.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
+
+Future<void> settle(WidgetTester tester) async {
+  await tester.runAsync(
+    () => Future<void>.delayed(const Duration(milliseconds: 150)),
+  );
+  await tester.pumpAndSettle();
+}
+
+Future<(AppDatabase, int)> startApp(WidgetTester tester) async {
+  tester.view.devicePixelRatio = 1;
+  tester.view.physicalSize = const Size(411, 900);
+  addTearDown(tester.view.reset);
+
+  final db = AppDatabase.forTesting(NativeDatabase.memory());
+  final id = await tester.runAsync(
+    () => db.insertHabit(
+      HabitsCompanion.insert(
+        name: 'DSA learning',
+        iconKey: 'code',
+        colorValue: 0xFFFF6B2C,
+        taskType: Value(HabitTaskType.timed.index),
+      ),
+    ),
+  );
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [databaseProvider.overrideWithValue(db)],
+      child: const EmberApp(),
+    ),
+  );
+  await settle(tester);
+  return (db, id!);
+}
+
+Future<void> shutDown(WidgetTester tester, AppDatabase db) async {
+  await tester.pumpWidget(const SizedBox());
+  await tester.pump(Duration.zero);
+  await tester.runAsync(db.close);
+  await tester.pump(const Duration(seconds: 1));
+}
+
+void main() {
+  test('finishing a timer adds its time to the day it started', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final id = await db.insertHabit(
+      HabitsCompanion.insert(name: 'Read', iconKey: 'book', colorValue: 0xFFFF6B2C),
+    );
+    final start = DateTime.now().subtract(const Duration(minutes: 20));
+    await db.startTimer(id, start);
+    await db.pauseTimer(id, start.add(const Duration(minutes: 10)));
+    await db.startTimer(id, start.add(const Duration(minutes: 15)));
+
+    final seconds = await db.finishTimer(id, start.add(const Duration(minutes: 20)));
+    expect(seconds, 15 * 60);
+    expect(await db.getTimer(id), isNull);
+    final rows = await db.select(db.completions).get();
+    expect(rows.single.day, dayKey(start));
+    expect(rows.single.amount, 15 * 60);
+
+    // A second timer on the same day adds to it.
+    await db.startTimer(id, start);
+    await db.finishTimer(id, start.add(const Duration(minutes: 5)));
+    expect((await db.select(db.completions).get()).single.amount, 20 * 60);
+    await db.close();
+  });
+
+  test('discarding a timer saves nothing; deleting the habit removes it', () async {
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final id = await db.insertHabit(
+      HabitsCompanion.insert(name: 'Read', iconKey: 'book', colorValue: 0xFFFF6B2C),
+    );
+    await db.startTimer(id, DateTime.now());
+    await db.discardTimer(id);
+    expect(await db.getTimer(id), isNull);
+    expect(await db.select(db.completions).get(), isEmpty);
+
+    await db.startTimer(id, DateTime.now());
+    await db.deleteHabit(id);
+    expect(await db.select(db.activeTimers).get(), isEmpty);
+    await db.close();
+  });
+
+  testWidgets('start, pause and save a timer from the habit menu', (tester) async {
+    final (db, id) = await startApp(tester);
+
+    await tester.longPress(find.text('DSA learning').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Timer'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('timer-clock')), findsOneWidget);
+    expect(find.text('Goal 30:00'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('timer-toggle')));
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 150)));
+    await tester.pump();
+    // While running the toggle becomes Pause. Pause before settling, because a
+    // running timer redraws every second.
+    expect(find.text('Pause'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('timer-toggle')));
+    await settle(tester);
+    expect(find.text('Resume'), findsOneWidget);
+
+    // Give the timer some banked time, then save it.
+    await tester.runAsync(() async {
+      await db.pauseTimer(id, DateTime.now());
+      final t = await db.getTimer(id);
+      expect(t, isNotNull);
+    });
+
+    await tester.tap(find.byKey(const Key('timer-save')));
+    await settle(tester);
+    expect(find.byKey(const Key('timer-clock')), findsNothing);
+    expect(find.text('DSA learning'), findsWidgets);
+    expect(await tester.runAsync(() => db.getTimer(id)), isNull);
+
+    await shutDown(tester, db);
+  });
+
+  testWidgets('a paused timer shows on Home and can be discarded', (tester) async {
+    final (db, id) = await startApp(tester);
+    await tester.runAsync(() async {
+      await db.startTimer(id, DateTime.now().subtract(const Duration(minutes: 3)));
+      await db.pauseTimer(id, DateTime.now());
+    });
+    await settle(tester);
+
+    expect(find.byKey(Key('timer-banner-$id')), findsOneWidget);
+    await tester.tap(find.byKey(Key('timer-banner-$id')));
+    await tester.pumpAndSettle();
+    expect(find.text('Resume'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('timer-discard')));
+    await settle(tester);
+    expect(find.byKey(Key('timer-banner-$id')), findsNothing);
+    expect(await tester.runAsync(() => db.getTimer(id)), isNull);
+
+    await shutDown(tester, db);
+  });
+}
