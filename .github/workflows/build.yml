@@ -86,6 +86,75 @@ jobs:
           print(f"Enabled core library desugaring in {gradle_file}")
           PY
 
+      - name: Configure release signing
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KS_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -z "$KS_B64" ]; then
+            echo "::warning::No signing key configured. This APK is signed with a throwaway key, so it cannot update an installed copy. See README, Signing."
+            exit 0
+          fi
+          echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/ember.jks"
+          {
+            echo "EMBER_KEYSTORE_PATH=$RUNNER_TEMP/ember.jks"
+            echo "EMBER_KEYSTORE_PASSWORD=$KS_PASSWORD"
+            echo "EMBER_KEY_ALIAS=$KS_ALIAS"
+            echo "EMBER_KEY_PASSWORD=$KS_KEY_PASSWORD"
+          } >> "$GITHUB_ENV"
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+
+          app_dir = Path("android/app")
+          gradle_file = app_dir / "build.gradle.kts"
+          kotlin_dsl = gradle_file.exists()
+          if not kotlin_dsl:
+              gradle_file = app_dir / "build.gradle"
+          content = gradle_file.read_text()
+          if "EMBER_KEYSTORE_PATH" in content:
+              raise SystemExit(0)
+
+          if kotlin_dsl:
+              signing = """    signingConfigs {
+                  create("ember") {
+                      storeFile = file(System.getenv("EMBER_KEYSTORE_PATH"))
+                      storePassword = System.getenv("EMBER_KEYSTORE_PASSWORD")
+                      keyAlias = System.getenv("EMBER_KEY_ALIAS")
+                      keyPassword = System.getenv("EMBER_KEY_PASSWORD")
+                  }
+              }
+
+              """
+              use = 'signingConfig = signingConfigs.getByName("ember")'
+              content = content.replace('signingConfigs.getByName("debug")', 'signingConfigs.getByName("ember")')
+          else:
+              signing = """    signingConfigs {
+                  ember {
+                      storeFile file(System.getenv("EMBER_KEYSTORE_PATH"))
+                      storePassword System.getenv("EMBER_KEYSTORE_PASSWORD")
+                      keyAlias System.getenv("EMBER_KEY_ALIAS")
+                      keyPassword System.getenv("EMBER_KEY_PASSWORD")
+                  }
+              }
+
+              """
+              use = "signingConfig signingConfigs.ember"
+              content = content.replace("signingConfigs.debug", "signingConfigs.ember")
+
+          content = content.replace("    buildTypes {", signing + "    buildTypes {", 1)
+          # Debug builds use the same key as release builds.
+          content = content.replace("buildTypes {", "buildTypes {\n        debug {\n            " + use + "\n        }", 1)
+          # Make sure the release build uses it too.
+          release = re.search(r"release\s*\{", content)
+          if release and content.count(use) < 2:
+              content = content[: release.end()] + "\n            " + use + content[release.end():]
+          gradle_file.write_text(content)
+          print(f"Configured signing in {gradle_file}")
+          PY
+
       - name: Configure Android notification manifest
         run: |
           python3 - <<'PY'
@@ -150,6 +219,13 @@ jobs:
 
       - name: Build ${{ matrix.mode }} APK
         run: flutter build apk --${{ matrix.mode }} --build-number=${{ github.run_number }}
+
+      - name: Show signing certificate
+        run: |
+          APKSIGNER="$(ls "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1)"
+          if [ -n "$APKSIGNER" ]; then
+            "$APKSIGNER" verify --print-certs build/app/outputs/flutter-apk/app-${{ matrix.mode }}.apk | grep -i "SHA-256" || true
+          fi
 
       - name: Upload ${{ matrix.mode }} APK
         uses: actions/upload-artifact@v4
