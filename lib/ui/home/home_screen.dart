@@ -11,6 +11,7 @@ import '../../data/providers.dart';
 import '../../theme/ember_theme.dart';
 import '../add_habit/add_habit_screen.dart';
 import '../common/text_dialogs.dart';
+import '../backup/backup_screen.dart';
 import '../library/habit_library_screen.dart';
 import '../timer/running_timers_banner.dart';
 import 'habit_details_sheet.dart';
@@ -115,6 +116,7 @@ class HomeScreen extends ConsumerWidget {
                 onToday: () => ref.read(todayProvider.notifier).state = startOfDay(DateTime.now()),
                 onNote: () => _editDayNote(context, ref, selectedDay),
                 onLibrary: () => _openLibrary(context),
+                onBackup: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const BackupScreen())),
               ),
             ),
             const SliverToBoxAdapter(child: RunningTimersBanner()),
@@ -196,13 +198,14 @@ class HomeScreen extends ConsumerWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.day, required this.views, required this.onPickDay, required this.onToday, required this.onNote, required this.onLibrary});
+  const _Header({required this.day, required this.views, required this.onPickDay, required this.onToday, required this.onNote, required this.onLibrary, required this.onBackup});
   final DateTime day;
   final List<HabitView>? views;
   final VoidCallback onPickDay;
   final VoidCallback onToday;
   final VoidCallback onNote;
   final VoidCallback onLibrary;
+  final VoidCallback onBackup;
 
   @override
   Widget build(BuildContext context) {
@@ -230,6 +233,11 @@ class _Header extends StatelessWidget {
                 tooltip: 'Habit library',
                 onPressed: onLibrary,
                 icon: const Icon(Icons.inventory_2_outlined),
+              ),
+              IconButton(
+                tooltip: 'Back up & restore',
+                onPressed: onBackup,
+                icon: const Icon(Icons.cloud_upload_outlined),
               ),
               if (!isToday) TextButton(onPressed: onToday, child: const Text('Today')),
             ],
