@@ -46,7 +46,9 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     final dir = await getTemporaryDirectory();
     final file = File('${dir.path}/$fileName');
     await file.writeAsString(content);
-    await Share.shareXFiles([XFile(file.path, mimeType: mime)], subject: fileName);
+    await SharePlus.instance.share(
+      ShareParams(files: [XFile(file.path, mimeType: mime)], subject: fileName),
+    );
   }
 
   String get _stamp => DateFormat('yyyy-MM-dd').format(DateTime.now());
