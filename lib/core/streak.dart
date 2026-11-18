@@ -196,6 +196,23 @@ bool _periodComplete(Schedule schedule, _Period period, Set<String> doneDays) {
   return count >= schedule.target;
 }
 
+/// How much of a period was achieved, from 0 to 1. Each day counts for the
+/// share of its target reached, so a half-finished day is half a day.
+double _periodCredit(Schedule schedule, _Period period, Map<String, double> dayProgress) {
+  final flexible = schedule.type == ScheduleType.everyNDays;
+  var total = 0.0;
+  for (var day = period.start; !day.isAfter(period.end); day = addDays(day, 1)) {
+    if (flexible || schedule.isDue(day)) {
+      total += (dayProgress[dayKey(day)] ?? 0).clamp(0.0, 1.0);
+    }
+  }
+  return (total / schedule.target).clamp(0.0, 1.0).toDouble();
+}
+
+/// Streaks and totals only count a period once it is fully done. The
+/// completion rate is different: when [dayProgress] (the 0 to 1 share of each
+/// day's target, by day key) is given, partly done days count for what was
+/// achieved, so 6 minutes of a 30 minute habit is not shown as 0%.
 HabitStats calculateHabitStats({
   required Schedule schedule,
   required Set<String> doneDays,
@@ -203,6 +220,7 @@ HabitStats calculateHabitStats({
   required DateTime today,
   HabitTaskType taskType = HabitTaskType.normal,
   bool twoDayRule = false,
+  Map<String, double>? dayProgress,
 }) {
   final start = startOfDay(createdAt);
   final end = startOfDay(today);
@@ -270,7 +288,11 @@ HabitStats calculateHabitStats({
   return HabitStats(
     currentStreak: Streak(current, unit),
     bestStreak: Streak(best, unit),
-    completionRate: total == 0 ? 0 : count / total,
+    completionRate: total == 0
+        ? 0
+        : dayProgress == null
+            ? count / total
+            : [for (final p in periods) _periodCredit(schedule, p, dayProgress)].fold<double>(0, (a, b) => a + b) / total,
     completedPeriods: count,
     totalPeriods: total,
   );
