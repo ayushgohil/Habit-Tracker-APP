@@ -48,13 +48,14 @@ Future<RestoreSummary> restoreBackupJson(AppDatabase db, String source) async {
   if (decoded is! Map<String, dynamic> || decoded['app'] != 'ember') {
     throw BackupException('This is not an Ember backup file.');
   }
-  final version = decoded['version'];
+  final Map<String, dynamic> root = decoded;
+  final version = root['version'];
   if (version is! int || version < 1 || version > backupFormatVersion) {
     throw BackupException('This backup was made by a newer version of Ember. Update the app and try again.');
   }
 
   List<T> rows<T>(String key, T Function(Map<String, dynamic>) parse) {
-    final list = decoded![key];
+    final list = root[key];
     if (list == null) return <T>[];
     if (list is! List) throw BackupException('The backup is damaged ($key).');
     return [
