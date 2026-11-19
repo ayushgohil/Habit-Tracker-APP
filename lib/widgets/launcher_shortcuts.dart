@@ -25,9 +25,10 @@ class LauncherShortcuts {
 
   /// Starts listening. [onShortcut] gets the habit id when one is tapped,
   /// including when it was the shortcut that launched the app.
-  void initialize(void Function(int habitId) onShortcut) {
+  Future<void> initialize(void Function(int habitId) onShortcut) async {
     try {
-      _actions.initialize((type) {
+      // initialize() reports a missing plugin asynchronously, so it has to be awaited.
+      await _actions.initialize((type) {
         final id = habitIdOf(type);
         if (id != null) onShortcut(id);
       });
