@@ -55,6 +55,9 @@ class Habits extends Table {
   BoolColumn get partialNudgeEnabled => boolean().withDefault(const Constant(false))();
   IntColumn get partialNudgeHour => integer().withDefault(const Constant(21))();
   IntColumn get partialNudgeMinute => integer().withDefault(const Constant(0))();
+
+  /// Index into `HealthMetric`; non-zero habits are filled in from Health Connect.
+  IntColumn get healthMetric => integer().withDefault(const Constant(0))();
 }
 
 class Completions extends Table {
@@ -124,7 +127,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -150,6 +153,11 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 5) {
             await m.createTable(activeTimers);
+          }
+          // Must run before the goal-history step below, which reads every
+          // habit column and so needs this one to exist.
+          if (from < 7) {
+            await m.addColumn(habits, habits.healthMetric);
           }
           if (from < 6) {
             await m.createTable(habitGoals);

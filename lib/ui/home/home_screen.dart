@@ -8,6 +8,7 @@ import '../../core/habit_icons.dart';
 import '../../core/habit_order.dart';
 import '../../core/streak.dart';
 import '../../data/providers.dart';
+import '../../health/health_sync.dart';
 import '../../theme/ember_theme.dart';
 import '../add_habit/add_habit_screen.dart';
 import '../common/text_dialogs.dart';
@@ -42,6 +43,16 @@ class HomeScreen extends ConsumerWidget {
 
   Future<void> _handleHabitTap(BuildContext context, WidgetRef ref, HabitView view, DateTime day) async {
     final actions = ref.read(habitActionsProvider);
+    if (view.habit.healthMetric != 0) {
+      // Filled in from Health Connect: tapping refreshes it instead of logging by hand.
+      final changed = await ref.read(healthSyncProvider).syncNow();
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(changed > 0 ? 'Updated from Health Connect' : 'Nothing new in Health Connect')),
+      );
+      return;
+    }
     final previousAmount = view.countToday;
     final String message;
     if (view.habit.taskType != HabitTaskType.timed.index) {
