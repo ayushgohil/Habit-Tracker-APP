@@ -86,7 +86,7 @@ class _BarPainter extends CustomPainter {
         final tp = TextPainter(
           text: TextSpan(
             text: labels[i],
-            style: const TextStyle(color: EmberColors.textMuted, fontSize: 10),
+            style: TextStyle(color: EmberColors.textMuted, fontSize: 10),
           ),
           textDirection: TextDirection.ltr,
         )..layout(maxWidth: slot * labelEvery);
