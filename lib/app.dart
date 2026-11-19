@@ -29,6 +29,11 @@ class _EmberAppState extends ConsumerState<EmberApp>
     WidgetsBinding.instance.addObserver(this);
     _syncReminders();
     LauncherShortcuts.instance.initialize(_onShortcut);
+    ref.listenManual<AsyncValue<List<HabitView>>>(
+      liveTodayViewsProvider,
+      (_, next) => _onTodayChanged(next),
+      fireImmediately: true,
+    );
   }
 
   /// A shortcut tapped before the habits have loaded waits here.
@@ -113,11 +118,6 @@ class _EmberAppState extends ConsumerState<EmberApp>
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<AsyncValue<List<HabitView>>>(
-      liveTodayViewsProvider,
-      (_, next) => _onTodayChanged(next),
-      fireImmediately: true,
-    );
     return MaterialApp(
       navigatorKey: _navigatorKey,
       scaffoldMessengerKey: _messengerKey,
