@@ -243,6 +243,18 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+  /// Habits that are filled in from a health app and still in use.
+  Future<List<Habit>> healthLinkedHabits() =>
+      (select(habits)..where((h) => h.healthMetric.isBiggerThanValue(0) & h.archivedAt.isNull())).get();
+
+  /// What is logged for a habit on a day (`yyyy-MM-dd`); 0 if nothing.
+  Future<int> loggedAmount(int habitId, String day) async {
+    final row = await (select(completions)
+          ..where((c) => c.habitId.equals(habitId) & c.day.equals(day)))
+        .getSingleOrNull();
+    return row?.amount ?? 0;
+  }
+
   Stream<List<HabitGoal>> watchGoals() => select(habitGoals).watch();
 
   /// Records the habit's current goal as applying from [from] onwards. Days

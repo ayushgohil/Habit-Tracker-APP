@@ -47,12 +47,7 @@ void main() {
     return id;
   }
 
-  Future<int> amountOn(int id, DateTime day) async {
-    final row = await (db.select(db.completions)
-          ..where((c) => c.habitId.equals(id) & c.day.equals(dayKey(day))))
-        .getSingleOrNull();
-    return row?.amount ?? 0;
-  }
+  Future<int> amountOn(int id, DateTime day) => db.loggedAmount(id, dayKey(day));
 
   test('fills the last days from the health app', () async {
     final id = await stepsHabit();

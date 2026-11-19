@@ -36,9 +36,7 @@ class HealthSync {
     _running = true;
     try {
       final today = startOfDay(now ?? DateTime.now());
-      final habits = await (_db.select(_db.habits)
-            ..where((h) => h.healthMetric.isBiggerThanValue(0) & h.archivedAt.isNull()))
-          .get();
+      final habits = await _db.healthLinkedHabits();
       var changed = 0;
       for (final habit in habits) {
         final metric = HealthMetric.fromIndex(habit.healthMetric);
@@ -51,10 +49,7 @@ class HealthSync {
           final value = await _source.amountForDay(metric, day);
           if (value == null) continue;
           final key = dayKey(day);
-          final row = await (_db.select(_db.completions)
-                ..where((c) => c.habitId.equals(habit.id) & c.day.equals(key)))
-              .getSingleOrNull();
-          if (shouldRaise(logged: row?.amount ?? 0, fromHealth: value)) {
+          if (shouldRaise(logged: await _db.loggedAmount(habit.id, key), fromHealth: value)) {
             await _db.setCompletion(habitId: habit.id, day: key, amount: value);
             changed++;
           }
