@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:ember/core/day.dart';
@@ -128,7 +130,11 @@ void main() {
     addTearDown(source.close);
     await source.insertHabit(HabitsCompanion.insert(name: 'Old', iconKey: 'x', colorValue: 1));
     final json = await exportBackupJson(source);
-    final withoutColumn = json.replaceAll(RegExp(r'\s*"healthMetric": \d+,?'), '');
+    final data = jsonDecode(json) as Map<String, dynamic>;
+    for (final h in data['habits'] as List) {
+      (h as Map<String, dynamic>).remove('healthMetric');
+    }
+    final withoutColumn = jsonEncode(data);
     expect(withoutColumn.contains('healthMetric'), isFalse);
 
     final target = AppDatabase.forTesting(NativeDatabase.memory());

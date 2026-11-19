@@ -300,12 +300,16 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
           const _Label('Fill in automatically'),
           DropdownButtonFormField<HealthMetric>(
             key: const Key('health-metric'),
+            isExpanded: true,
             initialValue: _health,
             items: [
               for (final m in HealthMetric.values)
                 DropdownMenuItem(
                   value: m,
-                  child: Text(m == HealthMetric.none ? 'No, I will log it myself' : 'From Health Connect: ${m.label}'),
+                  child: Text(
+                    m == HealthMetric.none ? 'No, I will log it myself' : 'From Health Connect: ${m.label}',
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
             ],
             onChanged: (v) => _pickHealth(v ?? _health),
