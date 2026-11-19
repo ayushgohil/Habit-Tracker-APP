@@ -3,9 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/day.dart';
 import 'data/providers.dart';
+import 'core/streak.dart';
 import 'notifications/habit_notification_service.dart';
 import 'theme/ember_theme.dart';
 import 'ui/home/home_screen.dart';
+import 'ui/timer/timer_screen.dart';
+import 'widgets/home_screen_widget.dart';
+import 'widgets/launcher_shortcuts.dart';
+
+final _navigatorKey = GlobalKey<NavigatorState>();
+final _messengerKey = GlobalKey<ScaffoldMessengerState>();
 
 class EmberApp extends ConsumerStatefulWidget {
   const EmberApp({super.key});
@@ -21,6 +28,44 @@ class _EmberAppState extends ConsumerState<EmberApp>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _syncReminders();
+    LauncherShortcuts.instance.initialize(_onShortcut);
+    ref.listenManual<AsyncValue<List<HabitView>>>(
+      liveTodayViewsProvider,
+      (_, next) => _onTodayChanged(next),
+      fireImmediately: true,
+    );
+  }
+
+  /// A shortcut tapped before the habits have loaded waits here.
+  int? _pendingShortcut;
+
+  void _onShortcut(int habitId) {
+    final views = ref.read(liveTodayViewsProvider).valueOrNull;
+    if (views == null) {
+      _pendingShortcut = habitId;
+      return;
+    }
+    _pendingShortcut = null;
+    final view = views.where((v) => v.habit.id == habitId).firstOrNull;
+    if (view == null) return;
+    if (view.habit.taskType == HabitTaskType.timed.index) {
+      _navigatorKey.currentState?.push(MaterialPageRoute<void>(builder: (_) => TimerScreen(habitId: habitId)));
+      return;
+    }
+    if (view.isDone) return;
+    ref.read(habitActionsProvider).tap(view, startOfDay(DateTime.now()));
+    _messengerKey.currentState?.showSnackBar(SnackBar(content: Text('Logged ${view.habit.name}')));
+  }
+
+  /// Keeps the home-screen widget and launcher shortcuts in step with today.
+  void _onTodayChanged(AsyncValue<List<HabitView>> next) {
+    final views = next.valueOrNull;
+    if (views == null) return;
+    final today = startOfDay(DateTime.now());
+    HomeScreenWidget.instance.sync(views, today);
+    LauncherShortcuts.instance.sync(views, today);
+    final pending = _pendingShortcut;
+    if (pending != null) _onShortcut(pending);
   }
 
   @override
@@ -42,6 +87,8 @@ class _EmberAppState extends ConsumerState<EmberApp>
     if (state != AppLifecycleState.resumed) return;
     _syncReminders();
     _refreshTimers();
+    // The day may have changed while the app was away.
+    ref.invalidate(liveTodayViewsProvider);
     final today = startOfDay(DateTime.now());
     if (today == _lastToday) return;
     if (ref.read(todayProvider) == _lastToday) {
@@ -72,6 +119,8 @@ class _EmberAppState extends ConsumerState<EmberApp>
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: _navigatorKey,
+      scaffoldMessengerKey: _messengerKey,
       title: 'Ember',
       debugShowCheckedModeBanner: false,
       theme: emberTheme(),

@@ -92,11 +92,12 @@ HabitStats _statsFor(Habit habit, GoalTimeline timeline, Map<String, int> amount
   );
 }
 
-final habitViewsProvider = Provider<AsyncValue<List<HabitView>>>((ref) {
-  final selectedDay = ref.watch(todayProvider);
-  final h = ref.watch(habitsProvider);
-  final c = ref.watch(completionsProvider);
-  final g = ref.watch(goalsProvider);
+AsyncValue<List<HabitView>> _viewsFor(
+  AsyncValue<List<Habit>> h,
+  AsyncValue<List<Completion>> c,
+  AsyncValue<List<HabitGoal>> g,
+  DateTime day,
+) {
   final error = h.error ?? c.error ?? g.error;
   if (error != null) return AsyncValue.error(error, StackTrace.current);
   final habits = h.valueOrNull;
@@ -107,13 +108,34 @@ final habitViewsProvider = Provider<AsyncValue<List<HabitView>>>((ref) {
   for (final item in completions) {
     (byHabit[item.habitId] ??= {})[item.day] = item.amount;
   }
-  final selectedKey = dayKey(selectedDay);
+  final key = dayKey(day);
   return AsyncValue.data([
     for (final habit in habits)
       // A habit doesn't exist on days before it started.
-      if (hasStartedBy(habit.createdAt, selectedDay))
-        _view(habit, timelineFor(habit, goals), byHabit[habit.id] ?? const {}, selectedDay, selectedKey),
+      if (hasStartedBy(habit.createdAt, day))
+        _view(habit, timelineFor(habit, goals), byHabit[habit.id] ?? const {}, day, key),
   ]);
+}
+
+/// The habits as they look on the day being viewed on Home.
+final habitViewsProvider = Provider<AsyncValue<List<HabitView>>>((ref) {
+  return _viewsFor(
+    ref.watch(habitsProvider),
+    ref.watch(completionsProvider),
+    ref.watch(goalsProvider),
+    ref.watch(todayProvider),
+  );
+});
+
+/// The habits as they look on the real current day, whatever day Home is
+/// showing. Feeds the home-screen widget and the launcher shortcuts.
+final liveTodayViewsProvider = Provider<AsyncValue<List<HabitView>>>((ref) {
+  return _viewsFor(
+    ref.watch(habitsProvider),
+    ref.watch(completionsProvider),
+    ref.watch(goalsProvider),
+    startOfDay(DateTime.now()),
+  );
 });
 
 HabitView _view(Habit habit, GoalTimeline timeline, Map<String, int> amounts, DateTime day, String key) {

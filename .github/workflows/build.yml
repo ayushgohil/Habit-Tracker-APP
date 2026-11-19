@@ -205,6 +205,9 @@ jobs:
           tree.write(path, encoding="utf-8", xml_declaration=True)
           PY
 
+      - name: Install the home-screen widget
+        run: python3 tool/install_android_widget.py
+
       - name: Install dependencies
         run: flutter pub get
 

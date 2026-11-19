@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/ember_widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/ember_widget_bg"
+    android:orientation="vertical"
+    android:padding="14dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="EMBER"
+        android:textColor="#FF6B2C"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.15" />
+
+    <TextView
+        android:id="@+id/ember_summary"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="6dp"
+        android:textColor="#F6EFEA"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:maxLines="1" />
+
+    <TextView
+        android:id="@+id/ember_row0"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="14sp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:paddingTop="2dp" />
+
+    <TextView
+        android:id="@+id/ember_row1"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="14sp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:paddingTop="2dp" />
+
+    <TextView
+        android:id="@+id/ember_row2"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="14sp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:paddingTop="2dp" />
+
+    <TextView
+        android:id="@+id/ember_row3"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="14sp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:paddingTop="2dp" />
+
+    <TextView
+        android:id="@+id/ember_row4"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="14sp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:paddingTop="2dp" />
+
+    <TextView
+        android:id="@+id/ember_row5"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="14sp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:paddingTop="2dp" />
+</LinearLayout>
