@@ -326,7 +326,10 @@ class _GoldState extends StatelessWidget {
   );
 }
 
-class _UpNext extends StatelessWidget {
+/// With more habits than this, the list starts folded so the rings stay in view.
+const upNextAutoCollapseAbove = 4;
+
+class _UpNext extends StatefulWidget {
   const _UpNext({required this.views, required this.day, required this.onTap, required this.onDetails, required this.onReorder});
   final List<HabitView> views;
   final DateTime day;
@@ -335,7 +338,21 @@ class _UpNext extends StatelessWidget {
   final ValueChanged<List<int>> onReorder;
 
   @override
+  State<_UpNext> createState() => _UpNextState();
+}
+
+class _UpNextState extends State<_UpNext> {
+  /// null until the person taps the header; then their choice wins.
+  bool? _open;
+
+  @override
   Widget build(BuildContext context) {
+    final views = widget.views;
+    final day = widget.day;
+    final onTap = widget.onTap;
+    final onDetails = widget.onDetails;
+    final onReorder = widget.onReorder;
+    final open = _open ?? views.length <= upNextAutoCollapseAbove;
     final ordered = [
       ...views.where((v) => v.schedule.isDue(day) && !v.isDone),
       ...views.where((v) => !v.schedule.isDue(day) || v.isDone),
@@ -346,14 +363,50 @@ class _UpNext extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Text('UP NEXT', style: Theme.of(context).textTheme.labelLarge?.copyWith(letterSpacing: 1.8, fontWeight: FontWeight.w800)),
-              const Spacer(),
-              Text('$pending remaining', style: Theme.of(context).textTheme.labelMedium?.copyWith(color: EmberColors.textMuted)),
-            ],
+          InkWell(
+            key: const Key('up-next-toggle'),
+            borderRadius: BorderRadius.circular(8),
+            onTap: () => setState(() => _open = !open),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                children: [
+                  Text('UP NEXT', style: Theme.of(context).textTheme.labelLarge?.copyWith(letterSpacing: 1.8, fontWeight: FontWeight.w800)),
+                  const Spacer(),
+                  Text('$pending remaining', style: Theme.of(context).textTheme.labelMedium?.copyWith(color: EmberColors.textMuted)),
+                  const SizedBox(width: 4),
+                  AnimatedRotation(
+                    turns: open ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: const Icon(Icons.expand_more_rounded, color: EmberColors.textMuted),
+                  ),
+                ],
+              ),
+            ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 2),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 220),
+            alignment: Alignment.topCenter,
+            child: open ? _list(context, ordered, views, day, onTap, onDetails, onReorder) : const SizedBox(width: double.infinity),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _list(
+    BuildContext context,
+    List<HabitView> ordered,
+    List<HabitView> views,
+    DateTime day,
+    ValueChanged<HabitView> onTap,
+    ValueChanged<HabitView> onDetails,
+    ValueChanged<List<int>> onReorder,
+  ) {
+    return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
           // A Material (not a coloured DecoratedBox) so the ListTiles can paint
           // their tap ripple instead of having it hidden behind the background.
           Material(
@@ -417,7 +470,6 @@ class _UpNext extends StatelessWidget {
             ),
           ),
         ],
-      ),
     );
   }
 }
