@@ -69,7 +69,8 @@ Future<RestoreSummary> restoreBackupJson(AppDatabase db, String source) async {
   final List<DayNote> noteRows;
   final List<HabitGoal> goalRows;
   try {
-    habitRows = rows('habits', Habit.fromJson);
+    // Backups made before a column existed don't have it; use its default.
+    habitRows = rows('habits', (m) => Habit.fromJson({'healthMetric': 0, ...m}));
     completionRows = rows('completions', Completion.fromJson);
     noteRows = rows('dayNotes', DayNote.fromJson);
     goalRows = rows('habitGoals', HabitGoal.fromJson);

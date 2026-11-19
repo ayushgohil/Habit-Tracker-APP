@@ -208,6 +208,9 @@ jobs:
       - name: Install the home-screen widget
         run: python3 tool/install_android_widget.py
 
+      - name: Prepare Health Connect
+        run: python3 tool/configure_health_connect.py
+
       - name: Install dependencies
         run: flutter pub get
 

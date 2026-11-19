@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/day.dart';
 import 'data/providers.dart';
 import 'core/streak.dart';
+import 'health/health_sync.dart';
 import 'notifications/habit_notification_service.dart';
 import 'theme/ember_theme.dart';
 import 'ui/home/home_screen.dart';
@@ -29,6 +30,7 @@ class _EmberAppState extends ConsumerState<EmberApp>
     WidgetsBinding.instance.addObserver(this);
     _syncReminders();
     LauncherShortcuts.instance.initialize(_onShortcut);
+    _syncHealth();
     ref.listenManual<AsyncValue<List<HabitView>>>(
       liveTodayViewsProvider,
       (_, next) => _onTodayChanged(next),
@@ -87,6 +89,7 @@ class _EmberAppState extends ConsumerState<EmberApp>
     if (state != AppLifecycleState.resumed) return;
     _syncReminders();
     _refreshTimers();
+    _syncHealth();
     // The day may have changed while the app was away.
     ref.invalidate(liveTodayViewsProvider);
     final today = startOfDay(DateTime.now());
@@ -104,6 +107,11 @@ class _EmberAppState extends ConsumerState<EmberApp>
       final db = ref.read(databaseProvider);
       db.markTablesUpdated([db.activeTimers, db.completions]);
     } catch (_) {}
+  }
+
+  /// Pulls steps, workouts and sleep for habits linked to Health Connect.
+  void _syncHealth() {
+    ref.read(healthSyncProvider).syncNow();
   }
 
   Future<void> _syncReminders() async {

@@ -219,8 +219,9 @@ class HabitActions {
     bool reminderEnabled = false, int reminderHour = 20, int reminderMinute = 0,
     bool partialNudgeEnabled = false, int partialNudgeHour = 21, int partialNudgeMinute = 0,
     DateTime? startDate,
+    int healthMetric = 0,
   }) => _db.insertHabit(HabitsCompanion.insert(
-    name: name, iconKey: iconKey, colorValue: colorValue,
+    name: name, iconKey: iconKey, colorValue: colorValue, healthMetric: Value(healthMetric),
     createdAt: startDate == null ? const Value.absent() : Value(startDate),
     scheduleType: Value(schedule.type.index), weekdayMask: Value(schedule.weekdayMask),
     timesPerWeek: Value(schedule.timesPerWeek), dailyTarget: Value(dailyTarget),
@@ -238,10 +239,11 @@ class HabitActions {
     required bool partialNudgeEnabled, required int partialNudgeHour, required int partialNudgeMinute,
     DateTime? startDate,
     bool applyToWholeHistory = false,
+    int healthMetric = 0,
   }) async {
     final before = await (_db.select(_db.habits)..where((h) => h.id.equals(id))).getSingleOrNull();
     await _db.updateHabit(id, HabitsCompanion(
-    name: Value(name), iconKey: Value(iconKey), colorValue: Value(colorValue),
+    name: Value(name), iconKey: Value(iconKey), colorValue: Value(colorValue), healthMetric: Value(healthMetric),
     createdAt: startDate == null ? const Value.absent() : Value(startDate),
     scheduleType: Value(schedule.type.index), weekdayMask: Value(schedule.weekdayMask),
     timesPerWeek: Value(schedule.timesPerWeek), intervalDays: Value(schedule.intervalDays),

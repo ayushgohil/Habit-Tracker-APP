@@ -4,9 +4,11 @@ import 'package:intl/intl.dart';
 
 import '../../core/day.dart';
 import '../../core/habit_icons.dart';
+import '../../core/health.dart';
 import '../../core/streak.dart';
 import '../../data/database.dart';
 import '../../data/providers.dart';
+import '../../health/health_sync.dart';
 import '../../notifications/habit_notification_service.dart';
 import '../../theme/ember_theme.dart';
 
@@ -26,6 +28,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
   Color _color = habitPalette.first;
   ScheduleType _schedule = ScheduleType.daily;
   HabitTaskType _taskType = HabitTaskType.normal;
+  HealthMetric _health = HealthMetric.none;
   int _weekdayMask = Schedule.allDaysMask;
   int _timesPerWeek = 3;
   int _intervalDays = 2;
@@ -53,6 +56,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
     _color = Color(h.colorValue);
     _schedule = ScheduleType.values[h.scheduleType];
     _taskType = HabitTaskType.values[h.taskType];
+    _health = HealthMetric.fromIndex(h.healthMetric);
     _weekdayMask = h.weekdayMask;
     _timesPerWeek = h.timesPerWeek;
     _intervalDays = h.intervalDays;
@@ -70,6 +74,27 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
     _target.dispose();
     _duration.dispose();
     super.dispose();
+  }
+
+  /// Step goals are in the thousands; other counts stay small.
+  int get _targetMax => _health == HealthMetric.steps ? 200000 : 999;
+
+  Future<void> _pickHealth(HealthMetric metric) async {
+    setState(() {
+      _health = metric;
+      if (metric != HealthMetric.none) {
+        _taskType = metric.taskType;
+        if (metric == HealthMetric.steps && (int.tryParse(_target.text) ?? 1) < 100) _target.text = '8000';
+        if (metric == HealthMetric.exercise) _duration.text = '30';
+        if (metric == HealthMetric.sleep) _duration.text = '480';
+      }
+    });
+    if (metric == HealthMetric.none) return;
+    final granted = await ref.read(healthSourceProvider).requestPermission(metric);
+    if (!mounted || granted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Ember can\'t read Health Connect yet. Install or open Health Connect and allow access, then edit this habit again.')),
+    );
   }
 
   int _positive(TextEditingController c, int fallback, int max) {
@@ -190,7 +215,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
         iconKey: _icon,
         colorValue: _color.toARGB32(),
         schedule: schedule,
-        dailyTarget: _positive(_target, 1, 999),
+        dailyTarget: _positive(_target, 1, _targetMax),
         sortOrder: existing,
         taskType: _taskType,
         twoDayRule: _twoDayRule,
@@ -202,6 +227,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
         partialNudgeHour: _partialNudgeTime.hour,
         partialNudgeMinute: _partialNudgeTime.minute,
         startDate: _startDate,
+        healthMetric: _health.index,
       );
     } else {
       savedHabitId = widget.habit!.id;
@@ -211,7 +237,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
         iconKey: _icon,
         colorValue: _color.toARGB32(),
         schedule: schedule,
-        dailyTarget: _positive(_target, 1, 999),
+        dailyTarget: _positive(_target, 1, _targetMax),
         taskType: _taskType,
         twoDayRule: _twoDayRule,
         targetDurationSeconds: _positive(_duration, 30, 1440) * 60,
@@ -223,6 +249,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
         partialNudgeMinute: _partialNudgeTime.minute,
         startDate: _startDate,
         applyToWholeHistory: wholeHistory,
+        healthMetric: _health.index,
       );
     }
     final db = ref.read(databaseProvider);
@@ -230,6 +257,10 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
           ..where((row) => row.id.equals(savedHabitId)))
         .getSingle();
     await HabitNotificationService.instance.syncHabit(savedHabit);
+    if (_health != HealthMetric.none) {
+      // Fill in today from Health Connect right away; never blocks saving.
+      ref.read(healthSyncProvider).syncNow();
+    }
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -263,8 +294,34 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
               DropdownMenuItem(value: HabitTaskType.negative, child: Text('Negative / avoid')),
               DropdownMenuItem(value: HabitTaskType.timed, child: Text('Timed')),
             ],
-            onChanged: (v) => setState(() => _taskType = v ?? _taskType),
+            // A habit filled in from a health app has a fixed type.
+            onChanged: _health == HealthMetric.none ? (v) => setState(() => _taskType = v ?? _taskType) : null,
           ),
+          const _Label('Fill in automatically'),
+          DropdownButtonFormField<HealthMetric>(
+            key: const Key('health-metric'),
+            isExpanded: true,
+            initialValue: _health,
+            items: [
+              for (final m in HealthMetric.values)
+                DropdownMenuItem(
+                  value: m,
+                  child: Text(
+                    m == HealthMetric.none ? 'No, I will log it myself' : 'From Health Connect: ${m.label}',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+            ],
+            onChanged: (v) => _pickHealth(v ?? _health),
+          ),
+          if (_health != HealthMetric.none)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                'Ember reads this from Health Connect when you open the app. Tapping the habit refreshes it.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: EmberColors.textMuted),
+              ),
+            ),
           if (_taskType == HabitTaskType.negative) ...[
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
@@ -275,18 +332,18 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
             ),
           ],
           if (_taskType == HabitTaskType.timed) ...[
-            const _Label('Daily time target'),
+            _Label(_health == HealthMetric.none ? 'Daily time target' : _health.goalLabel),
             TextField(
               controller: _duration,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(suffixText: 'minutes'),
             ),
           ] else ...[
-            const _Label('Daily completion target'),
+            _Label(_health == HealthMetric.none ? 'Daily completion target' : _health.goalLabel),
             TextField(
               controller: _target,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(suffixText: 'completions'),
+              decoration: InputDecoration(suffixText: _health == HealthMetric.none ? 'completions' : _health.goalUnit),
             ),
           ],
           const _Label('Schedule'),
