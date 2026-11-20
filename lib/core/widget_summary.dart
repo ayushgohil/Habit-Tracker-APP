@@ -9,6 +9,8 @@ class WidgetHabit {
     required this.count,
     required this.target,
     this.timed = false,
+    this.id = 0,
+    this.tappable = false,
   });
   final String name;
   final bool done;
@@ -17,12 +19,22 @@ class WidgetHabit {
   final int count;
   final int target;
   final bool timed;
+  final int id;
+
+  /// True when one tap on the widget can log it (plain habits only; timed and
+  /// Health Connect habits open the app instead).
+  final bool tappable;
 }
 
 class WidgetRow {
-  const WidgetRow(this.text, {required this.done});
+  const WidgetRow(this.text, {required this.done, this.id = 0, this.tappable = false});
   final String text;
   final bool done;
+  final int id;
+
+  /// Tapping this row logs the habit from the widget. A finished habit is not
+  /// tappable, so a stray touch cannot undo it.
+  final bool tappable;
 }
 
 class WidgetSummary {
@@ -45,7 +57,7 @@ WidgetSummary buildWidgetSummary(List<WidgetHabit> habits, {int maxRows = 6}) {
   ];
   final visible = ordered.length > maxRows ? maxRows - 1 : ordered.length;
   final rows = <WidgetRow>[
-    for (final h in ordered.take(visible)) WidgetRow(_rowText(h), done: h.done),
+    for (final h in ordered.take(visible)) WidgetRow(_rowText(h), done: h.done, id: h.id, tappable: h.tappable && !h.done),
   ];
   if (ordered.length > visible) {
     rows.add(WidgetRow('+${ordered.length - visible} more', done: false));

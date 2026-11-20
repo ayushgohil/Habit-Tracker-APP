@@ -12,6 +12,7 @@ import '../../health/health_sync.dart';
 import '../../theme/ember_theme.dart';
 import '../add_habit/add_habit_screen.dart';
 import '../appearance/appearance_sheet.dart';
+import 'up_next_fold.dart';
 import '../common/text_dialogs.dart';
 import '../backup/backup_screen.dart';
 import '../library/habit_library_screen.dart';
@@ -336,7 +337,7 @@ class _GoldState extends StatelessWidget {
 /// With more habits than this, the list starts folded so the rings stay in view.
 const upNextAutoCollapseAbove = 4;
 
-class _UpNext extends StatefulWidget {
+class _UpNext extends ConsumerStatefulWidget {
   const _UpNext({required this.views, required this.day, required this.onTap, required this.onDetails, required this.onReorder});
   final List<HabitView> views;
   final DateTime day;
@@ -345,13 +346,10 @@ class _UpNext extends StatefulWidget {
   final ValueChanged<List<int>> onReorder;
 
   @override
-  State<_UpNext> createState() => _UpNextState();
+  ConsumerState<_UpNext> createState() => _UpNextState();
 }
 
-class _UpNextState extends State<_UpNext> {
-  /// null until the person taps the header; then their choice wins.
-  bool? _open;
-
+class _UpNextState extends ConsumerState<_UpNext> {
   @override
   Widget build(BuildContext context) {
     final views = widget.views;
@@ -359,7 +357,8 @@ class _UpNextState extends State<_UpNext> {
     final onTap = widget.onTap;
     final onDetails = widget.onDetails;
     final onReorder = widget.onReorder;
-    final open = _open ?? views.length <= upNextAutoCollapseAbove;
+    // The person's saved choice wins; otherwise long lists start folded.
+    final open = ref.watch(upNextFoldProvider) ?? views.length <= upNextAutoCollapseAbove;
     final ordered = [
       ...views.where((v) => v.schedule.isDue(day) && !v.isDone),
       ...views.where((v) => !v.schedule.isDue(day) || v.isDone),
@@ -373,7 +372,7 @@ class _UpNextState extends State<_UpNext> {
           InkWell(
             key: const Key('up-next-toggle'),
             borderRadius: BorderRadius.circular(8),
-            onTap: () => setState(() => _open = !open),
+            onTap: () => ref.read(upNextFoldProvider.notifier).set(!open),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 6),
               child: Row(

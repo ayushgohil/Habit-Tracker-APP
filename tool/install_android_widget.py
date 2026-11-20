@@ -44,5 +44,11 @@ if not any(r.get(ANDROID + "name") == name for r in application.findall("receive
         ANDROID + "name": "android.appwidget.provider",
         ANDROID + "resource": "@xml/ember_widget_info",
     })
+# Lets a tap on a widget row run Dart code while the app is closed.
+background = "es.antonborri.home_widget.HomeWidgetBackgroundReceiver"
+if not any(r.get(ANDROID + "name") == background for r in application.findall("receiver")):
+    receiver = ET.SubElement(application, "receiver", {ANDROID + "name": background, ANDROID + "exported": "true"})
+    intent_filter = ET.SubElement(receiver, "intent-filter")
+    ET.SubElement(intent_filter, "action", {ANDROID + "name": "es.antonborri.home_widget.action.BACKGROUND"})
 tree.write(manifest, encoding="utf-8", xml_declaration=True)
 print(f"Installed the Ember home-screen widget for package {package}")

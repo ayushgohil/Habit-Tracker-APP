@@ -218,6 +218,18 @@ jobs:
       - name: Prepare Health Connect
         run: python3 tool/configure_health_connect.py
 
+      - name: Cache Gradle downloads
+        # Gradle re-downloads and recompiles everything on a fresh machine,
+        # which was most of the build time.
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('pubspec.lock') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
       - name: Install dependencies
         run: flutter pub get
 
@@ -227,11 +239,14 @@ jobs:
       - name: Analyze Dart code
         run: flutter analyze
 
+      # Both builds run the same code, so the tests only need to run once.
       - name: Run unit tests
+        if: matrix.mode == 'debug'
         run: flutter test
 
       - name: Build ${{ matrix.mode }} APK
-        run: flutter build apk --${{ matrix.mode }} --build-number=${{ github.run_number }}
+        # 64-bit phones only: roughly a third of the native build work and a smaller APK.
+        run: flutter build apk --${{ matrix.mode }} --target-platform android-arm64 --build-number=${{ github.run_number }}
 
       - name: Show signing certificate
         run: |

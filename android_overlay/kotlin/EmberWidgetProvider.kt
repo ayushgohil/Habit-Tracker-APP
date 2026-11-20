@@ -5,8 +5,10 @@ import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.graphics.Color
+import android.net.Uri
 import android.view.View
 import android.widget.RemoteViews
+import es.antonborri.home_widget.HomeWidgetBackgroundIntent
 
 /**
  * Home-screen widget showing today's habits. The app writes plain strings to
@@ -47,6 +49,18 @@ class EmberWidgetProvider : AppWidgetProvider() {
                     views.setTextViewText(id, text)
                     val done = prefs.getString("ember_done$i", "0") == "1"
                     views.setTextColor(id, if (done) Color.parseColor("#A89B93") else Color.parseColor("#F6EFEA"))
+                    // A plain, unfinished habit is logged by tapping its row;
+                    // anything else opens the app.
+                    val kind = prefs.getString("ember_kind$i", "open")
+                    val habitId = prefs.getString("ember_id$i", "0") ?: "0"
+                    if (kind == "tap") {
+                        views.setOnClickPendingIntent(
+                            id,
+                            HomeWidgetBackgroundIntent.getBroadcast(context, Uri.parse("ember://tap?id=$habitId")),
+                        )
+                    } else if (open != null) {
+                        views.setOnClickPendingIntent(id, open)
+                    }
                 }
             }
             if (open != null) views.setOnClickPendingIntent(R.id.ember_widget_root, open)

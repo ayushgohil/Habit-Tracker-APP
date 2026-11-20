@@ -32,6 +32,7 @@ class _EmberAppState extends ConsumerState<EmberApp>
     _syncReminders();
     LauncherShortcuts.instance.initialize(_onShortcut);
     _syncHealth();
+    HomeScreenWidget.instance.registerTaps();
     ref.listenManual<String>(themeIdProvider, (_, __) => _repaintEverything());
     ref.listenManual<AsyncValue<List<HabitView>>>(
       liveTodayViewsProvider,
