@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../../data/providers.dart';
 import '../../theme/ember_theme.dart';
 import '../../theme/theme_controller.dart';
 
@@ -25,7 +26,7 @@ class _AppearanceSheet extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Appearance', style: Theme.of(context).textTheme.titleLarge),
+            Text('Look and day', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 4),
             Text('Pick a look. It applies right away.', style: TextStyle(color: EmberColors.textMuted)),
             const SizedBox(height: 16),
@@ -38,6 +39,27 @@ class _AppearanceSheet extends ConsumerWidget {
                     palette: p,
                     selected: p.id == selected,
                     onTap: () => ref.read(themeIdProvider.notifier).select(p.id),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Text('Day starts at', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 4),
+            Text(
+              'Stay up late? Until this time, what you log still counts for the day before.',
+              style: TextStyle(color: EmberColors.textMuted),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final hour in const [0, 1, 2, 3, 4, 5, 6])
+                  ChoiceChip(
+                    key: Key('day-start-$hour'),
+                    label: Text(hour == 0 ? 'Midnight' : '$hour AM'),
+                    selected: ref.watch(dayStartProvider) == hour * 60,
+                    onSelected: (_) => ref.read(dayStartProvider.notifier).select(hour * 60),
                   ),
               ],
             ),

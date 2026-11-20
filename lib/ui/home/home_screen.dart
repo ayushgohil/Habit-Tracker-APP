@@ -32,7 +32,7 @@ class HomeScreen extends ConsumerWidget {
   }
 
   Future<void> _pickDay(BuildContext context, WidgetRef ref, DateTime selected) async {
-    final now = startOfDay(DateTime.now());
+    final now = currentDay();
     final picked = await showDatePicker(
       context: context,
       initialDate: selected,
@@ -126,7 +126,7 @@ class HomeScreen extends ConsumerWidget {
                 day: selectedDay,
                 views: viewsAsync.valueOrNull,
                 onPickDay: () => _pickDay(context, ref, selectedDay),
-                onToday: () => ref.read(todayProvider.notifier).state = startOfDay(DateTime.now()),
+                onToday: () => ref.read(todayProvider.notifier).state = currentDay(),
                 onNote: () => _editDayNote(context, ref, selectedDay),
                 onLibrary: () => _openLibrary(context),
                 onBackup: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const BackupScreen())),
@@ -140,9 +140,9 @@ class HomeScreen extends ConsumerWidget {
                     _EmptyState(
                       // Habits only exist from their start date, so an empty
                       // past day doesn't mean the person has no habits.
-                      pastDay: dayKey(selectedDay) != dayKey(DateTime.now()),
+                      pastDay: dayKey(selectedDay) != currentDayKey(),
                       onAdd: () => _openAddHabit(context),
-                      onToday: () => ref.read(todayProvider.notifier).state = startOfDay(DateTime.now()),
+                      onToday: () => ref.read(todayProvider.notifier).state = currentDay(),
                     ),
                   ];
                 }
@@ -225,7 +225,7 @@ class _Header extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final total = views?.where((v) => v.schedule.isDue(day)).length ?? 0;
     final done = views?.where((v) => v.schedule.isDue(day) && v.isDone).length ?? 0;
-    final isToday = dayKey(day) == dayKey(DateTime.now());
+    final isToday = dayKey(day) == currentDayKey();
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 18),
       child: Column(
@@ -249,7 +249,7 @@ class _Header extends StatelessWidget {
               ),
               IconButton(
                 key: const Key('appearance-button'),
-                tooltip: 'Appearance',
+                tooltip: 'Look and day',
                 onPressed: () => showAppearanceSheet(context),
                 icon: const Icon(Icons.palette_outlined),
               ),

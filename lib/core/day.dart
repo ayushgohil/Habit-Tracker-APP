@@ -6,6 +6,22 @@ library;
 
 DateTime startOfDay(DateTime d) => DateTime(d.year, d.month, d.day);
 
+/// Minutes after midnight at which a new day begins (0 = midnight). Someone
+/// who stays up until 2am can set this to 120 so late-night habits still count
+/// for the day they started. Set once at startup and when the setting changes.
+int dayStartOffsetMinutes = 0;
+
+/// [instant] (default: now) moved back by the day-start offset, so its calendar
+/// date is the Ember day it belongs to.
+DateTime dayClock([DateTime? instant]) =>
+    (instant ?? DateTime.now()).subtract(Duration(minutes: dayStartOffsetMinutes));
+
+/// The Ember day it is right now, as midnight of that date.
+DateTime currentDay([DateTime? instant]) => startOfDay(dayClock(instant));
+
+/// The `yyyy-MM-dd` key of the Ember day it is right now.
+String currentDayKey([DateTime? instant]) => dayKey(dayClock(instant));
+
 DateTime addDays(DateTime d, int days) =>
     DateTime(d.year, d.month, d.day + days);
 

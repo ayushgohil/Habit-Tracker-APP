@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../core/day.dart';
 import '../core/streak.dart';
 import '../data/database.dart';
+import '../data/day_start.dart';
 import '../data/providers.dart';
 import '../notifications/habit_notification_service.dart';
 import 'home_screen_widget.dart';
@@ -27,9 +28,10 @@ Future<void> emberWidgetBackground(Uri? uri) async {
   final id = int.tryParse(uri.queryParameters['id'] ?? '');
   if (id == null) return;
   WidgetsFlutterBinding.ensureInitialized();
+  await loadDayStart();
   final db = AppDatabase();
   try {
-    final day = startOfDay(DateTime.now());
+    final day = currentDay();
     await logTapFromWidget(db, id, day);
     final views = await loadViewsOn(db, day);
     if (views.any((v) => v.habit.id == id && v.isDone)) {

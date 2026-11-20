@@ -10,6 +10,7 @@ import '../core/day.dart';
 import '../core/reminder_plan.dart';
 import '../core/timer.dart';
 import '../data/database.dart';
+import '../data/day_start.dart';
 import '../data/providers.dart' show scheduleForHabit;
 
 class HabitNotificationService {
@@ -135,6 +136,7 @@ class HabitNotificationService {
   /// from the widget or the notification's Done button, when the app is closed).
   Future<void> cancelToday(int habitId) => _safely(() async {
         await initialize();
+        // Reminders are scheduled for calendar dates, so this is the real date.
         final today = startOfDay(DateTime.now());
         await _plugin.cancel(reminderNotificationId(habitId, today, nudge: false));
         await _plugin.cancel(reminderNotificationId(habitId, today, nudge: true));
@@ -224,6 +226,7 @@ class HabitNotificationService {
       });
 
   static Future<void> _dispatch(NotificationResponse response) async {
+    await loadDayStart();
     final action = response.actionId;
     final payload = response.payload ?? '';
     if (action == 'done') {
@@ -285,7 +288,7 @@ class HabitNotificationService {
       final habit = await (db.select(db.habits)..where((row) => row.id.equals(habitId))).getSingleOrNull();
       if (habit == null) return;
       final target = habit.taskType == 2 ? habit.targetDurationSeconds : habit.dailyTarget;
-      await db.setCompletion(habitId: habit.id, day: dayKey(DateTime.now()), amount: target);
+      await db.setCompletion(habitId: habit.id, day: currentDayKey(), amount: target);
       await instance.cancelToday(habit.id);
     } finally {
       await db.close();

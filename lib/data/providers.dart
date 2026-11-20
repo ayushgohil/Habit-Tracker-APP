@@ -5,6 +5,7 @@ import '../core/day.dart';
 import '../core/goals.dart';
 import '../core/streak.dart';
 import 'database.dart';
+import 'day_start.dart';
 import '../notifications/habit_notification_service.dart';
 
 final databaseProvider = Provider<AppDatabase>((ref) {
@@ -12,7 +13,23 @@ final databaseProvider = Provider<AppDatabase>((ref) {
   ref.onDispose(db.close);
   return db;
 });
-final todayProvider = StateProvider<DateTime>((ref) => startOfDay(DateTime.now()));
+final todayProvider = StateProvider<DateTime>((ref) => currentDay());
+
+/// Minutes after midnight when a new day begins. Changing it moves "today".
+class DayStartController extends StateNotifier<int> {
+  DayStartController(this._ref) : super(dayStartOffsetMinutes);
+  final Ref _ref;
+
+  Future<void> select(int minutes) async {
+    final value = minutes.clamp(0, maxDayStartMinutes).toInt();
+    dayStartOffsetMinutes = value;
+    state = value;
+    _ref.read(todayProvider.notifier).state = currentDay();
+    await saveDayStart(value);
+  }
+}
+
+final dayStartProvider = StateNotifierProvider<DayStartController, int>((ref) => DayStartController(ref));
 final habitsProvider = StreamProvider<List<Habit>>((ref) => ref.watch(databaseProvider).watchActiveHabits());
 final pausedHabitsProvider = StreamProvider<List<Habit>>((ref) => ref.watch(databaseProvider).watchPausedHabits());
 final archivedHabitsProvider = StreamProvider<List<Habit>>((ref) => ref.watch(databaseProvider).watchArchivedHabits());
@@ -145,11 +162,12 @@ final habitViewsProvider = Provider<AsyncValue<List<HabitView>>>((ref) {
 /// The habits as they look on the real current day, whatever day Home is
 /// showing. Feeds the home-screen widget and the launcher shortcuts.
 final liveTodayViewsProvider = Provider<AsyncValue<List<HabitView>>>((ref) {
+  ref.watch(dayStartProvider);
   return _viewsFor(
     ref.watch(habitsProvider),
     ref.watch(completionsProvider),
     ref.watch(goalsProvider),
-    startOfDay(DateTime.now()),
+    currentDay(),
   );
 });
 
@@ -197,7 +215,8 @@ HabitHistory buildHistory(Habit habit, GoalTimeline timeline, Map<String, int> a
 
 /// Live history for one habit (by id). Null while loading or if it is gone.
 final habitHistoryProvider = Provider.family<HabitHistory?, int>((ref, id) {
-  final today = startOfDay(DateTime.now());
+  ref.watch(dayStartProvider);
+  final today = currentDay();
   final habits = ref.watch(allHabitsProvider).valueOrNull;
   final completions = ref.watch(completionsProvider).valueOrNull;
   final goals = ref.watch(goalsProvider).valueOrNull;
@@ -281,7 +300,7 @@ class HabitActions {
       await _db.collapseGoals(id);
     } else {
       // Past days keep the goal they had; the new one starts today.
-      await _db.recordGoalFrom(id, dayKey(DateTime.now()));
+      await _db.recordGoalFrom(id, currentDayKey());
     }
   }
 
