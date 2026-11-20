@@ -172,15 +172,19 @@ class AppDatabase extends _$AppDatabase {
         },
       );
 
-  Stream<List<Habit>> watchActiveHabits() {
-    return (select(habits)
-          ..where((h) => h.archivedAt.isNull() & h.pausedAt.isNull())
-          ..orderBy([
-            (h) => OrderingTerm.asc(h.sortOrder),
-            (h) => OrderingTerm.asc(h.id),
-          ]))
-        .watch();
+  SimpleSelectStatement<$HabitsTable, Habit> _activeHabitsQuery() {
+    return select(habits)
+      ..where((h) => h.archivedAt.isNull() & h.pausedAt.isNull())
+      ..orderBy([
+        (h) => OrderingTerm.asc(h.sortOrder),
+        (h) => OrderingTerm.asc(h.id),
+      ]);
   }
+
+  Stream<List<Habit>> watchActiveHabits() => _activeHabitsQuery().watch();
+
+  /// The same habits as [watchActiveHabits], read once.
+  Future<List<Habit>> activeHabitsNow() => _activeHabitsQuery().get();
 
   Stream<List<Habit>> watchPausedHabits() => (select(habits)
         ..where((h) => h.pausedAt.isNotNull() & h.archivedAt.isNull())
