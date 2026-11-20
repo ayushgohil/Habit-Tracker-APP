@@ -86,6 +86,7 @@ class HabitNotificationService {
       nudgeHour: habit.partialNudgeHour,
       nudgeMinute: habit.partialNudgeMinute,
       doneToday: doneToday,
+      extraTimes: parseExtraReminders(habit.extraReminders),
     );
     for (final reminder in plan) {
       await _schedule(habit: habit, reminder: reminder);
@@ -105,11 +106,13 @@ class HabitNotificationService {
     );
     final when = reminder.when;
     await _plugin.zonedSchedule(
-      reminderNotificationId(habit.id, when, nudge: reminder.nudge),
+      reminderNotificationId(habit.id, when, slot: reminder.slot),
       reminder.nudge ? 'A little Ember reminder' : habit.name,
       reminder.nudge
           ? 'A second reminder for ${habit.name}. Keep your momentum going.'
-          : 'A small step today keeps your streak alive.',
+          : reminder.extra
+              ? 'Time for ${habit.name}.'
+              : 'A small step today keeps your streak alive.',
       tz.TZDateTime(tz.local, when.year, when.month, when.day, when.hour, when.minute),
       details,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
@@ -138,8 +141,9 @@ class HabitNotificationService {
         await initialize();
         // Reminders are scheduled for calendar dates, so this is the real date.
         final today = startOfDay(DateTime.now());
-        await _plugin.cancel(reminderNotificationId(habitId, today, nudge: false));
-        await _plugin.cancel(reminderNotificationId(habitId, today, nudge: true));
+        for (var slot = 0; slot < firstExtraSlot + maxExtraReminders; slot++) {
+          await _plugin.cancel(reminderNotificationId(habitId, today, slot: slot));
+        }
       });
 
   static int _notificationId(int habitId, int weekday, bool nudge) =>

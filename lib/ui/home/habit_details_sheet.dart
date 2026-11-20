@@ -72,6 +72,19 @@ Future<void> showHabitDetails(BuildContext context, WidgetRef ref, HabitView vie
                   await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => TimerScreen(habitId: habit.id)));
                 },
               ),
+            if (habit.taskType != HabitTaskType.timed.index && habit.healthMetric == 0 && (habit.unitLabel.trim().isNotEmpty || habit.stepSize > 1))
+              ListTile(
+                key: const Key('log-amount'),
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.add_circle_outline_rounded),
+                title: const Text('Log an amount'),
+                subtitle: Text('Add any amount${habit.unitLabel.trim().isEmpty ? '' : ' of ${habit.unitLabel.trim()}'} for ${DateFormat('d MMM').format(day)}'),
+                onTap: () async {
+                  final amount = await showAmountDialog(sheetContext, habitName: habit.name, unit: habit.unitLabel.trim());
+                  if (amount != null) await actions.setAmount(view, day, view.countToday + amount);
+                  if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+                },
+              ),
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.insights_rounded),

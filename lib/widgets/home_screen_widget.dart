@@ -28,6 +28,7 @@ class HomeScreenWidget {
             target: v.target,
             timed: v.habit.taskType == HabitTaskType.timed.index,
             id: v.habit.id,
+            unit: v.habit.unitLabel.trim(),
             tappable: v.habit.taskType != HabitTaskType.timed.index && v.habit.healthMetric == 0,
           ),
     ]);

@@ -14,6 +14,8 @@ class HabitTemplate {
     this.taskType = HabitTaskType.normal,
     this.target = 1,
     this.health = HealthMetric.none,
+    this.unit = '',
+    this.step = 1,
   });
 
   final String id;
@@ -23,10 +25,14 @@ class HabitTemplate {
   final HabitTaskType taskType;
   final int target;
   final HealthMetric health;
+
+  /// What the target is counted in, and how much one tap adds.
+  final String unit;
+  final int step;
 }
 
 const habitTemplates = <HabitTemplate>[
-  HabitTemplate(id: 'water', name: 'Drink water', iconKey: 'water', color: Color(0xFF3DA5FF), target: 8),
+  HabitTemplate(id: 'water', name: 'Drink water', iconKey: 'water', color: Color(0xFF3DA5FF), target: 2000, unit: 'ml', step: 250),
   HabitTemplate(id: 'read', name: 'Read', iconKey: 'book', color: Color(0xFFFFB347), taskType: HabitTaskType.timed, target: 20),
   HabitTemplate(id: 'steps', name: 'Walk 8,000 steps', iconKey: 'walk', color: Color(0xFF4CC47A), target: 8000, health: HealthMetric.steps),
   HabitTemplate(id: 'meditate', name: 'Meditate', iconKey: 'meditate', color: Color(0xFFC77DFF), taskType: HabitTaskType.timed, target: 10),
@@ -38,6 +44,7 @@ const habitTemplates = <HabitTemplate>[
   HabitTemplate(id: 'journal', name: 'Write in my journal', iconKey: 'journal', color: Color(0xFFD08A5B)),
   HabitTemplate(id: 'gratitude', name: 'Note something I am grateful for', iconKey: 'gratitude', color: Color(0xFFF2C037)),
   HabitTemplate(id: 'vitamins', name: 'Take vitamins', iconKey: 'pill', color: Color(0xFFFF8FB1)),
+  HabitTemplate(id: 'medicine', name: 'Take medicine', iconKey: 'vaccine', color: Color(0xFFE5383B), target: 2, unit: 'doses'),
   HabitTemplate(id: 'wake', name: 'Wake up early', iconKey: 'alarm', color: Color(0xFFE9E36A)),
   HabitTemplate(id: 'tidy', name: 'Tidy up', iconKey: 'clean', color: Color(0xFF00B4D8)),
   HabitTemplate(id: 'nosugar', name: 'No sugar', iconKey: 'sweets', color: Color(0xFFFF4D6D), taskType: HabitTaskType.negative),

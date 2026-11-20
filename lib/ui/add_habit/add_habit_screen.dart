@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../core/day.dart';
 import '../../core/habit_icons.dart';
 import '../../core/health.dart';
+import '../../core/reminder_plan.dart';
 import '../../core/streak.dart';
 import '../../data/database.dart';
 import '../../data/providers.dart';
@@ -26,6 +27,9 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
   final _name = TextEditingController();
   final _target = TextEditingController(text: '1');
   final _duration = TextEditingController(text: '30');
+  final _unit = TextEditingController();
+  final _step = TextEditingController(text: '1');
+  List<(int, int)> _extraTimes = [];
   String _icon = habitIconEntries.first.key;
   Color _color = habitPalette.first;
   ScheduleType _schedule = ScheduleType.daily;
@@ -53,6 +57,9 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
     _startDate = startOfDay(h.createdAt);
     _name.text = h.name;
     _target.text = h.dailyTarget.toString();
+    _unit.text = h.unitLabel;
+    _step.text = h.stepSize.toString();
+    _extraTimes = parseExtraReminders(h.extraReminders);
     _duration.text = (h.targetDurationSeconds ~/ 60).toString();
     _icon = h.iconKey;
     _color = Color(h.colorValue);
@@ -75,11 +82,13 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
     _name.dispose();
     _target.dispose();
     _duration.dispose();
+    _unit.dispose();
+    _step.dispose();
     super.dispose();
   }
 
   /// Step goals are in the thousands; other counts stay small.
-  int get _targetMax => _health == HealthMetric.steps ? 200000 : 999;
+  int get _targetMax => _health == HealthMetric.steps ? 200000 : (_unit.text.trim().isNotEmpty ? 100000 : 999);
 
   /// Fills the form from a ready-made habit. Everything stays editable.
   Future<void> _applyTemplate(HabitTemplate t) async {
@@ -90,6 +99,8 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
       _taskType = t.taskType;
       _twoDayRule = false;
       _health = HealthMetric.none;
+      _unit.text = t.unit;
+      _step.text = '${t.step}';
       if (t.taskType == HabitTaskType.timed) {
         _duration.text = '${t.target}';
       } else {
@@ -107,6 +118,22 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
         }
       });
     }
+  }
+
+  /// What is saved for the unit, step and extra reminder times. Negative and
+  /// timed habits, and ones filled in from Health Connect, keep the defaults.
+  bool get _countsInUnits =>
+      _health == HealthMetric.none && _taskType == HabitTaskType.normal;
+  String get _unitValue => _countsInUnits ? _unit.text.trim() : '';
+  int get _stepValue => _countsInUnits ? _positive(_step, 1, _targetMax) : 1;
+  String get _extraValue => _reminderEnabled ? formatExtraReminders(_extraTimes) : '';
+
+  Future<void> _addExtraTime() async {
+    final picked = await showTimePicker(context: context, initialTime: const TimeOfDay(hour: 12, minute: 0));
+    if (picked == null || !mounted) return;
+    final time = (picked.hour, picked.minute);
+    if (_extraTimes.contains(time) || _extraTimes.length >= maxExtraReminders) return;
+    setState(() => _extraTimes = [..._extraTimes, time]..sort((a, b) => (a.$1 * 60 + a.$2).compareTo(b.$1 * 60 + b.$2)));
   }
 
   Future<void> _pickHealth(HealthMetric metric) async {
@@ -198,7 +225,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
     );
     final newTarget = _taskType == HabitTaskType.timed
         ? _positive(_duration, 30, 1440) * 60
-        : _positive(_target, 1, 999);
+        : _positive(_target, 1, _targetMax);
     var wholeHistory = false;
     final old = widget.habit;
     if (old != null) {
@@ -258,6 +285,9 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
         partialNudgeMinute: _partialNudgeTime.minute,
         startDate: _startDate,
         healthMetric: _health.index,
+        unitLabel: _unitValue,
+        stepSize: _stepValue,
+        extraReminders: _extraValue,
       );
     } else {
       savedHabitId = widget.habit!.id;
@@ -280,6 +310,9 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
         startDate: _startDate,
         applyToWholeHistory: wholeHistory,
         healthMetric: _health.index,
+        unitLabel: _unitValue,
+        stepSize: _stepValue,
+        extraReminders: _extraValue,
       );
     }
     final db = ref.read(databaseProvider);
@@ -393,8 +426,30 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
             TextField(
               controller: _target,
               keyboardType: TextInputType.number,
-              decoration: InputDecoration(suffixText: _health == HealthMetric.none ? 'completions' : _health.goalUnit),
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                suffixText: _health != HealthMetric.none
+                    ? _health.goalUnit
+                    : (_unit.text.trim().isEmpty ? 'completions' : _unit.text.trim()),
+              ),
             ),
+            if (_health == HealthMetric.none && _taskType != HabitTaskType.negative) ...[
+              const _Label('Counted in (optional)'),
+              TextField(
+                key: const Key('unit-field'),
+                controller: _unit,
+                maxLength: 12,
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(hintText: 'ml, pages, doses...', counterText: ''),
+              ),
+              const _Label('Each tap adds'),
+              TextField(
+                key: const Key('step-field'),
+                controller: _step,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(suffixText: _unit.text.trim().isEmpty ? null : _unit.text.trim()),
+              ),
+            ],
           ],
           const _Label('Schedule'),
           DropdownButtonFormField<ScheduleType>(
@@ -467,6 +522,30 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
             ListTile(contentPadding: EdgeInsets.zero, title: const Text('Reminder time'),
               subtitle: Text(_reminderTime.format(context)), trailing: const Icon(Icons.access_time_rounded),
               onTap: () => _pickReminderTime(nudge: false)),
+          if (_reminderEnabled)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  for (final t in _extraTimes)
+                    InputChip(
+                      key: Key('extra-${t.$1}-${t.$2}'),
+                      label: Text(TimeOfDay(hour: t.$1, minute: t.$2).format(context)),
+                      onDeleted: () => setState(() => _extraTimes = [for (final e in _extraTimes) if (e != t) e]),
+                    ),
+                  if (_extraTimes.length < maxExtraReminders)
+                    ActionChip(
+                      key: const Key('add-extra-time'),
+                      avatar: const Icon(Icons.add_alarm_rounded, size: 18),
+                      label: Text(_extraTimes.isEmpty ? 'Add another time (other doses)' : 'Add another time'),
+                      onPressed: _addExtraTime,
+                    ),
+                ],
+              ),
+            ),
           if (_reminderEnabled) ...[
             SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('Partial-progress nudge'),
               subtitle: const Text('Send a second reminder later in the day'),

@@ -60,7 +60,13 @@ class HomeScreen extends ConsumerWidget {
     final String message;
     if (view.habit.taskType != HabitTaskType.timed.index) {
       await actions.tap(view, day);
-      message = view.isDone ? '${view.habit.name} marked incomplete' : '${view.habit.name} logged';
+      final step = view.habit.stepSize;
+      final unit = view.habit.unitLabel.trim();
+      message = view.isDone
+          ? '${view.habit.name} marked incomplete'
+          : step > 1 || unit.isNotEmpty
+              ? '${view.habit.name}: +$step${unit.isEmpty ? '' : ' $unit'}'
+              : '${view.habit.name} logged';
     } else {
       final minutes = await showLogTimeDialog(
         context,
@@ -465,7 +471,7 @@ class _UpNextState extends ConsumerState<_UpNext> {
                     child: Icon(done ? Icons.check_rounded : habitIconFor(view.habit.iconKey), size: 18, color: Color(view.habit.colorValue)),
                   ),
                   title: Text(view.habit.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                  subtitle: Text(done ? 'Completed' : due ? 'Ready when you are' : view.schedule.describe(),
+                  subtitle: Text(done ? 'Completed' : due ? (view.progressText ?? 'Ready when you are') : view.schedule.describe(),
                       style: TextStyle(color: done ? EmberColors.glow : EmberColors.textMuted, fontSize: 12)),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,

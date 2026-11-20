@@ -11,8 +11,12 @@ class WidgetHabit {
     this.timed = false,
     this.id = 0,
     this.tappable = false,
+    this.unit = '',
   });
   final String name;
+
+  /// What a count is measured in ("ml"), or empty.
+  final String unit;
   final bool done;
 
   /// Progress today: taps, or seconds for a timed habit.
@@ -71,7 +75,7 @@ String _rowText(WidgetHabit h) {
     return '○ ${h.name}  ${h.count ~/ 60}/${h.target ~/ 60} min';
   }
   if (!h.timed && h.target > 1 && h.count > 0) {
-    return '○ ${h.name}  ${h.count}/${h.target}';
+    return h.unit.isEmpty ? '○ ${h.name}  ${h.count}/${h.target}' : '○ ${h.name}  ${h.count}/${h.target} ${h.unit}';
   }
   return '○ ${h.name}';
 }
