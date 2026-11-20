@@ -27,8 +27,8 @@ class HabitTemplate {
 
 const habitTemplates = <HabitTemplate>[
   HabitTemplate(id: 'water', name: 'Drink water', iconKey: 'water', color: Color(0xFF3DA5FF), target: 8),
-  HabitTemplate(id: 'steps', name: 'Walk 8,000 steps', iconKey: 'walk', color: Color(0xFF4CC47A), target: 8000, health: HealthMetric.steps),
   HabitTemplate(id: 'read', name: 'Read', iconKey: 'book', color: Color(0xFFFFB347), taskType: HabitTaskType.timed, target: 20),
+  HabitTemplate(id: 'steps', name: 'Walk 8,000 steps', iconKey: 'walk', color: Color(0xFF4CC47A), target: 8000, health: HealthMetric.steps),
   HabitTemplate(id: 'meditate', name: 'Meditate', iconKey: 'meditate', color: Color(0xFFC77DFF), taskType: HabitTaskType.timed, target: 10),
   HabitTemplate(id: 'workout', name: 'Workout', iconKey: 'fitness', color: Color(0xFFFF6B2C), taskType: HabitTaskType.timed, target: 30, health: HealthMetric.exercise),
   HabitTemplate(id: 'sleep', name: 'Sleep 8 hours', iconKey: 'sleep', color: Color(0xFF8E7CFF), taskType: HabitTaskType.timed, target: 480, health: HealthMetric.sleep),
