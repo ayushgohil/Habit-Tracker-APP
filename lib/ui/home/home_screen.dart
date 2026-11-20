@@ -11,6 +11,7 @@ import '../../data/providers.dart';
 import '../../health/health_sync.dart';
 import '../../theme/ember_theme.dart';
 import '../add_habit/add_habit_screen.dart';
+import '../appearance/appearance_sheet.dart';
 import '../common/text_dialogs.dart';
 import '../backup/backup_screen.dart';
 import '../library/habit_library_screen.dart';
@@ -231,7 +232,7 @@ class _Header extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.local_fire_department_rounded, color: EmberColors.ember, size: 20),
+              Icon(Icons.local_fire_department_rounded, color: EmberColors.ember, size: 20),
               const SizedBox(width: 6),
               Text('EMBER', style: textTheme.labelLarge?.copyWith(color: EmberColors.ember, letterSpacing: 3, fontWeight: FontWeight.w700)),
               const Spacer(),
@@ -246,11 +247,16 @@ class _Header extends StatelessWidget {
                 icon: const Icon(Icons.inventory_2_outlined),
               ),
               IconButton(
+                key: const Key('appearance-button'),
+                tooltip: 'Appearance',
+                onPressed: () => showAppearanceSheet(context),
+                icon: const Icon(Icons.palette_outlined),
+              ),
+              IconButton(
                 tooltip: 'Back up & restore',
                 onPressed: onBackup,
                 icon: const Icon(Icons.cloud_upload_outlined),
               ),
-              if (!isToday) TextButton(onPressed: onToday, child: const Text('Today')),
             ],
           ),
           const SizedBox(height: 14),
@@ -272,7 +278,8 @@ class _Header extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const Icon(Icons.calendar_month_rounded, color: EmberColors.glow),
+                  if (!isToday) TextButton(onPressed: onToday, child: const Text('Today')),
+                  Icon(Icons.calendar_month_rounded, color: EmberColors.glow),
                 ],
               ),
             ),
@@ -378,7 +385,7 @@ class _UpNextState extends State<_UpNext> {
                   AnimatedRotation(
                     turns: open ? 0.5 : 0,
                     duration: const Duration(milliseconds: 200),
-                    child: const Icon(Icons.expand_more_rounded, color: EmberColors.textMuted),
+                    child: Icon(Icons.expand_more_rounded, color: EmberColors.textMuted),
                   ),
                 ],
               ),
@@ -461,7 +468,7 @@ class _UpNextState extends State<_UpNext> {
                         icon: Icon(done ? Icons.check_circle_rounded : Icons.circle_outlined,
                             color: done ? const Color(0xFFFFD36A) : EmberColors.textMuted),
                       ),
-                      ReorderableDragStartListener(index: index, child: const Icon(Icons.drag_handle_rounded, color: EmberColors.textMuted)),
+                      ReorderableDragStartListener(index: index, child: Icon(Icons.drag_handle_rounded, color: EmberColors.textMuted)),
                     ],
                   ),
                   onTap: () => onDetails(view),
@@ -490,7 +497,7 @@ class _EmptyState extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.local_fire_department_rounded, size: 56, color: EmberColors.ember),
+              Icon(Icons.local_fire_department_rounded, size: 56, color: EmberColors.ember),
               const SizedBox(height: 16),
               Text(pastDay ? 'No habits on this day' : 'Light your first ember', style: textTheme.titleLarge),
               const SizedBox(height: 8),

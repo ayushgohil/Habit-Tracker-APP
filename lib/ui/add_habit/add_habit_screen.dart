@@ -11,6 +11,7 @@ import '../../data/providers.dart';
 import '../../health/health_sync.dart';
 import '../../notifications/habit_notification_service.dart';
 import '../../theme/ember_theme.dart';
+import 'icon_picker.dart';
 
 class AddHabitScreen extends ConsumerStatefulWidget {
   const AddHabitScreen({super.key, this.habit});
@@ -24,7 +25,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
   final _name = TextEditingController();
   final _target = TextEditingController(text: '1');
   final _duration = TextEditingController(text: '30');
-  String _icon = habitIcons.keys.first;
+  String _icon = habitIconEntries.first.key;
   Color _color = habitPalette.first;
   ScheduleType _schedule = ScheduleType.daily;
   HabitTaskType _taskType = HabitTaskType.normal;
@@ -427,26 +428,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
                 onTap: () => _pickReminderTime(nudge: true)),
           ],
           const _Label('Icon'),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              for (final entry in habitIcons.entries)
-                InkWell(
-                  customBorder: const CircleBorder(),
-                  onTap: () => setState(() => _icon = entry.key),
-                  child: CircleAvatar(
-                    backgroundColor: _icon == entry.key
-                        ? _color.withValues(alpha: .2)
-                        : EmberColors.surface,
-                    child: Icon(
-                      entry.value,
-                      color: _icon == entry.key ? _color : EmberColors.textMuted,
-                    ),
-                  ),
-                ),
-            ],
-          ),
+          IconPicker(selected: _icon, color: _color, onChanged: (key) => setState(() => _icon = key)),
           const _Label('Colour'),
           Wrap(
             spacing: 12,

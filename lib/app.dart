@@ -7,6 +7,7 @@ import 'core/streak.dart';
 import 'health/health_sync.dart';
 import 'notifications/habit_notification_service.dart';
 import 'theme/ember_theme.dart';
+import 'theme/theme_controller.dart';
 import 'ui/home/home_screen.dart';
 import 'ui/timer/timer_screen.dart';
 import 'widgets/home_screen_widget.dart';
@@ -31,11 +32,26 @@ class _EmberAppState extends ConsumerState<EmberApp>
     _syncReminders();
     LauncherShortcuts.instance.initialize(_onShortcut);
     _syncHealth();
+    ref.listenManual<String>(themeIdProvider, (_, __) => _repaintEverything());
     ref.listenManual<AsyncValue<List<HabitView>>>(
       liveTodayViewsProvider,
       (_, next) => _onTodayChanged(next),
       fireImmediately: true,
     );
+  }
+
+  /// Colours are read as widgets build, so after the look changes every widget
+  /// is asked to build again (the same trick Flutter uses for hot reload).
+  void _repaintEverything() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      void visit(Element element) {
+        element.markNeedsBuild();
+        element.visitChildren(visit);
+      }
+
+      (context as Element).visitChildren(visit);
+    });
   }
 
   /// A shortcut tapped before the habits have loaded waits here.
@@ -126,12 +142,14 @@ class _EmberAppState extends ConsumerState<EmberApp>
 
   @override
   Widget build(BuildContext context) {
+    final palette = paletteById(ref.watch(themeIdProvider));
+    EmberColors.use(palette);
     return MaterialApp(
       navigatorKey: _navigatorKey,
       scaffoldMessengerKey: _messengerKey,
       title: 'Ember',
       debugShowCheckedModeBanner: false,
-      theme: emberTheme(),
+      theme: emberTheme(palette),
       home: const HomeScreen(),
     );
   }

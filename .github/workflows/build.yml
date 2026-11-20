@@ -24,6 +24,13 @@ jobs:
         mode: [debug, release]
 
     steps:
+      - name: Free up disk space
+        # The runner's disk is nearly full once Android, Flutter and Gradle are
+        # in place; drop big tools this build never uses.
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /opt/hostedtoolcache/CodeQL /usr/local/lib/node_modules || true
+          df -h / | tail -1
+
       - name: Check out code
         uses: actions/checkout@v4
 
