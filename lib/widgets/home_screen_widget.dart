@@ -4,6 +4,7 @@ import 'package:home_widget/home_widget.dart';
 import '../core/streak.dart';
 import '../core/widget_summary.dart';
 import '../data/providers.dart';
+import 'widget_actions.dart';
 
 /// Pushes today's habits to the Android home-screen widget.
 class HomeScreenWidget {
@@ -26,8 +27,19 @@ class HomeScreenWidget {
             count: v.countToday,
             target: v.target,
             timed: v.habit.taskType == HabitTaskType.timed.index,
+            id: v.habit.id,
+            tappable: v.habit.taskType != HabitTaskType.timed.index && v.habit.healthMetric == 0,
           ),
     ]);
+  }
+
+  /// Lets a tap on a widget row reach Dart while the app is closed.
+  Future<void> registerTaps() async {
+    try {
+      await HomeWidget.registerInteractivityCallback(emberWidgetBackground);
+    } catch (error) {
+      debugPrint('Ember widget taps: $error');
+    }
   }
 
   Future<void> sync(List<HabitView> views, DateTime day) async {
@@ -38,6 +50,9 @@ class HomeScreenWidget {
         for (var i = 0; i < 6; i++) ...{
           'ember_row$i': i < summary.rows.length ? summary.rows[i].text : '',
           'ember_done$i': i < summary.rows.length && summary.rows[i].done ? '1' : '0',
+          // What a tap on the row does: "tap" logs it, anything else opens the app.
+          'ember_kind$i': i < summary.rows.length && summary.rows[i].tappable ? 'tap' : 'open',
+          'ember_id$i': i < summary.rows.length ? '${summary.rows[i].id}' : '0',
         },
       };
       // Skip the update when nothing changed.
