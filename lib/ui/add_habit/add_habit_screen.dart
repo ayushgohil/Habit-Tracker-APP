@@ -11,6 +11,7 @@ import '../../data/providers.dart';
 import '../../health/health_sync.dart';
 import '../../notifications/habit_notification_service.dart';
 import '../../theme/ember_theme.dart';
+import '../../core/habit_templates.dart';
 import 'icon_picker.dart';
 
 class AddHabitScreen extends ConsumerStatefulWidget {
@@ -79,6 +80,34 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
 
   /// Step goals are in the thousands; other counts stay small.
   int get _targetMax => _health == HealthMetric.steps ? 200000 : 999;
+
+  /// Fills the form from a ready-made habit. Everything stays editable.
+  Future<void> _applyTemplate(HabitTemplate t) async {
+    setState(() {
+      _name.text = t.name;
+      _icon = t.iconKey;
+      _color = t.color;
+      _taskType = t.taskType;
+      _twoDayRule = false;
+      _health = HealthMetric.none;
+      if (t.taskType == HabitTaskType.timed) {
+        _duration.text = '${t.target}';
+      } else {
+        _target.text = '${t.target}';
+      }
+    });
+    if (t.health != HealthMetric.none) {
+      await _pickHealth(t.health);
+      if (!mounted) return;
+      setState(() {
+        if (t.taskType == HabitTaskType.timed) {
+          _duration.text = '${t.target}';
+        } else {
+          _target.text = '${t.target}';
+        }
+      });
+    }
+  }
 
   Future<void> _pickHealth(HealthMetric metric) async {
     setState(() {
@@ -279,6 +308,26 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
             maxLength: 60,
             decoration: const InputDecoration(labelText: 'Habit name'),
           ),
+          if (!editing) ...[
+            const _Label('Quick start'),
+            SizedBox(
+              height: 44,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: habitTemplates.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, i) {
+                  final t = habitTemplates[i];
+                  return ActionChip(
+                    key: Key('template-${t.id}'),
+                    avatar: Icon(habitIconFor(t.iconKey), size: 18, color: t.color),
+                    label: Text(t.name),
+                    onPressed: () => _applyTemplate(t),
+                  );
+                },
+              ),
+            ),
+          ],
           const _Label('Starts on'),
           ListTile(
             contentPadding: EdgeInsets.zero,

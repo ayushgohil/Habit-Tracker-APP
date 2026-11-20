@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../data/backup.dart';
+import '../../data/csv_import.dart';
 import '../../data/providers.dart';
 import '../../notifications/habit_notification_service.dart';
 import '../../theme/ember_theme.dart';
@@ -34,6 +35,8 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     try {
       await task();
     } on BackupException catch (error) {
+      _say(error.message);
+    } on CsvImportException catch (error) {
       _say(error.message);
     } catch (error) {
       _say('Something went wrong: $error');
@@ -95,6 +98,15 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
         _say('Restored ${summary.habits} habits and ${summary.days} logged days.');
       });
 
+  Future<void> _importCsv() => _run(() async {
+        final picked = await FilePicker.pickFiles();
+        if (picked.isEmpty) return;
+        final text = utf8.decode(await picked.first.readAsBytes(), allowMalformed: true);
+        final result = await importHistoryCsv(ref.read(databaseProvider), text);
+        final unknown = result.unknownHabits.isEmpty ? '' : ' Not found in Ember: ${result.unknownHabits.take(3).join(', ')}.';
+        _say('Added ${result.imported} days across ${result.habits} habits, skipped ${result.skipped} rows.$unknown');
+      });
+
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
@@ -128,6 +140,13 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
             title: 'Export history as CSV',
             subtitle: 'One row per logged day, for spreadsheets',
             onTap: _busy ? null : _exportCsv,
+          ),
+          _ActionCard(
+            key: const Key('backup-import-csv'),
+            icon: Icons.upload_file_outlined,
+            title: 'Import history from CSV',
+            subtitle: 'Adds logged days for habits you already have. Nothing is lowered or removed',
+            onTap: _busy ? null : _importCsv,
           ),
           const SizedBox(height: 12),
           if (_busy) const LinearProgressIndicator(),

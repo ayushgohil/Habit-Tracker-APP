@@ -14,6 +14,9 @@ class DayNotes extends Table {
   TextColumn get day => text().withLength(min: 10, max: 10)();
   TextColumn get note => text()();
 
+  /// Pinned notes are listed first on the All notes screen.
+  BoolColumn get pinned => boolean().withDefault(const Constant(false))();
+
   @override
   Set<Column> get primaryKey => {day};
 }
@@ -127,7 +130,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -158,6 +161,9 @@ class AppDatabase extends _$AppDatabase {
           // habit column and so needs this one to exist.
           if (from < 7) {
             await m.addColumn(habits, habits.healthMetric);
+          }
+          if (from < 8) {
+            await m.addColumn(dayNotes, dayNotes.pinned);
           }
           if (from < 6) {
             await m.createTable(habitGoals);
@@ -332,6 +338,13 @@ class AppDatabase extends _$AppDatabase {
       ),
     );
   }
+
+  /// Every note, newest day first.
+  Stream<List<DayNote>> watchNotes() =>
+      (select(dayNotes)..orderBy([(n) => OrderingTerm.desc(n.day)])).watch();
+
+  Future<void> setNotePinned({required String day, required bool pinned}) =>
+      (update(dayNotes)..where((n) => n.day.equals(day))).write(DayNotesCompanion(pinned: Value(pinned)));
 
   Stream<List<ActiveTimer>> watchTimers() => select(activeTimers).watch();
 
