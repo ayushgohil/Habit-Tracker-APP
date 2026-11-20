@@ -67,7 +67,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
     // The goal and what is already logged are for the day the timer belongs
     // to (the day it started, or today), so the ring starts from time that is
     // already counted.
-    final day = row?.day ?? dayKey(now);
+    final day = row?.day ?? currentDayKey(now);
     final logged = completions
             .where((c) => c.habitId == habit.id && c.day == day)
             .firstOrNull

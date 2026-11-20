@@ -347,7 +347,7 @@ class AppDatabase extends _$AppDatabase {
     if (existing == null) {
       await into(activeTimers).insert(ActiveTimersCompanion(
         habitId: Value(habitId),
-        day: Value(dayKey(now)),
+        day: Value(currentDayKey(now)),
         runningSince: Value(now),
       ));
       return;

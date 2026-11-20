@@ -22,7 +22,7 @@ class HabitStatsScreen extends ConsumerStatefulWidget {
 }
 
 class _HabitStatsScreenState extends ConsumerState<HabitStatsScreen> {
-  late DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
+  late DateTime _month = DateTime(currentDay().year, currentDay().month);
   _Range _range = _Range.week;
 
   @override
@@ -36,7 +36,7 @@ class _HabitStatsScreenState extends ConsumerState<HabitStatsScreen> {
     }
     final habit = history.habit;
     final color = Color(habit.colorValue);
-    final today = startOfDay(DateTime.now());
+    final today = currentDay();
 
     return Scaffold(
       appBar: AppBar(
@@ -75,7 +75,7 @@ class _HabitStatsScreenState extends ConsumerState<HabitStatsScreen> {
   }
 
   Future<void> _onDayTap(HabitHistory history, DateTime day) async {
-    final today = startOfDay(DateTime.now());
+    final today = currentDay();
     if (day.isAfter(today) || day.isBefore(startOfDay(history.habit.createdAt))) return;
     final actions = ref.read(habitActionsProvider);
     final current = history.amounts[dayKey(day)] ?? 0;

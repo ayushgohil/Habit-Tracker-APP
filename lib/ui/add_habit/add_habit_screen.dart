@@ -42,7 +42,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
   bool _saving = false;
 
   /// The first day the habit exists. Stored as the habit's creation date.
-  DateTime _startDate = startOfDay(DateTime.now());
+  DateTime _startDate = currentDay();
 
   @override
   void initState() {
@@ -112,7 +112,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
   }
 
   Future<void> _pickStartDate() async {
-    final now = startOfDay(DateTime.now());
+    final now = currentDay();
     final picked = await showDatePicker(
       context: context,
       initialDate: _startDate,

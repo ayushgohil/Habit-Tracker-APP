@@ -72,7 +72,7 @@ class _EmberAppState extends ConsumerState<EmberApp>
       return;
     }
     if (view.isDone) return;
-    ref.read(habitActionsProvider).tap(view, startOfDay(DateTime.now()));
+    ref.read(habitActionsProvider).tap(view, currentDay());
     _messengerKey.currentState?.showSnackBar(SnackBar(content: Text('Logged ${view.habit.name}')));
   }
 
@@ -80,7 +80,7 @@ class _EmberAppState extends ConsumerState<EmberApp>
   void _onTodayChanged(AsyncValue<List<HabitView>> next) {
     final views = next.valueOrNull;
     if (views == null) return;
-    final today = startOfDay(DateTime.now());
+    final today = currentDay();
     HomeScreenWidget.instance.sync(views, today);
     _resyncRemindersIfChanged(views);
     LauncherShortcuts.instance.sync(views, today);
@@ -95,7 +95,7 @@ class _EmberAppState extends ConsumerState<EmberApp>
   }
 
   /// The calendar day the app last saw as "today".
-  DateTime _lastToday = startOfDay(DateTime.now());
+  DateTime _lastToday = currentDay();
 
   /// Rolls "today" over when the app is reopened after midnight.
   ///
@@ -110,7 +110,7 @@ class _EmberAppState extends ConsumerState<EmberApp>
     _syncHealth();
     // The day may have changed while the app was away.
     ref.invalidate(liveTodayViewsProvider);
-    final today = startOfDay(DateTime.now());
+    final today = currentDay();
     if (today == _lastToday) return;
     if (ref.read(todayProvider) == _lastToday) {
       ref.read(todayProvider.notifier).state = today;
@@ -152,10 +152,14 @@ class _EmberAppState extends ConsumerState<EmberApp>
     try {
       final db = ref.read(databaseProvider);
       final habits = await db.select(db.habits).get();
-      final views = await loadViewsOn(db, startOfDay(DateTime.now()));
+      final views = await loadViewsOn(db, currentDay());
       await HabitNotificationService.instance.syncAll(
         habits,
-        doneToday: {for (final v in views) if (v.isDone) v.habit.id},
+        // Reminders are for calendar dates. Between midnight and the day
+        // start, "today" in the app is still yesterday, so nothing is done yet.
+        doneToday: currentDay() == startOfDay(DateTime.now())
+            ? {for (final v in views) if (v.isDone) v.habit.id}
+            : const {},
       );
     } catch (_) {
       // A notification setup failure must never prevent the habit tracker opening.
