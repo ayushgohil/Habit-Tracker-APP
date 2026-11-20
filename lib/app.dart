@@ -82,6 +82,7 @@ class _EmberAppState extends ConsumerState<EmberApp>
     if (views == null) return;
     final today = startOfDay(DateTime.now());
     HomeScreenWidget.instance.sync(views, today);
+    _resyncRemindersIfChanged(views);
     LauncherShortcuts.instance.sync(views, today);
     final pending = _pendingShortcut;
     if (pending != null) _onShortcut(pending);
@@ -131,11 +132,31 @@ class _EmberAppState extends ConsumerState<EmberApp>
     ref.read(healthSyncProvider).syncNow();
   }
 
+  String? _reminderFingerprint;
+
+  /// Reminders depend on which habits are finished today and on each habit's
+  /// reminder and schedule settings, so schedule them again when those change.
+  void _resyncRemindersIfChanged(List<HabitView> views) {
+    final fingerprint = [
+      for (final v in views)
+        '${v.habit.id}:${v.isDone}:${v.habit.reminderEnabled}:${v.habit.reminderHour}:${v.habit.reminderMinute}:'
+            '${v.habit.partialNudgeEnabled}:${v.habit.partialNudgeHour}:${v.habit.partialNudgeMinute}:'
+            '${v.habit.scheduleType}:${v.habit.weekdayMask}:${v.habit.intervalDays}',
+    ].join('|');
+    if (fingerprint == _reminderFingerprint) return;
+    _reminderFingerprint = fingerprint;
+    _syncReminders();
+  }
+
   Future<void> _syncReminders() async {
     try {
       final db = ref.read(databaseProvider);
       final habits = await db.select(db.habits).get();
-      await HabitNotificationService.instance.syncAll(habits);
+      final views = await loadViewsOn(db, startOfDay(DateTime.now()));
+      await HabitNotificationService.instance.syncAll(
+        habits,
+        doneToday: {for (final v in views) if (v.isDone) v.habit.id},
+      );
     } catch (_) {
       // A notification setup failure must never prevent the habit tracker opening.
     }

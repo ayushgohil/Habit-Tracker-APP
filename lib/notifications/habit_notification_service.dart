@@ -7,8 +7,10 @@ import 'package:timezone/data/latest_all.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../core/day.dart';
+import '../core/reminder_plan.dart';
 import '../core/timer.dart';
 import '../data/database.dart';
+import '../data/providers.dart' show scheduleForHabit;
 
 class HabitNotificationService {
   HabitNotificationService._();
@@ -57,60 +59,39 @@ class HabitNotificationService {
     }
   }
 
-  Future<void> syncAll(List<Habit> habits) async {
+  /// Schedules every habit's reminders. [doneToday] are the habits already
+  /// finished today, which get no reminder for the rest of the day.
+  Future<void> syncAll(List<Habit> habits, {Set<int> doneToday = const {}}) async {
     for (final habit in habits) {
-      await syncHabit(habit);
+      await syncHabit(habit, doneToday: doneToday.contains(habit.id));
     }
   }
 
-  Future<void> syncHabit(Habit habit) => _safely(() => _syncHabit(habit));
+  Future<void> syncHabit(Habit habit, {bool doneToday = false}) =>
+      _safely(() => _syncHabit(habit, doneToday));
 
-  Future<void> _syncHabit(Habit habit) async {
+  Future<void> _syncHabit(Habit habit, bool doneToday) async {
     await initialize();
     await _cancelHabit(habit.id);
     if (!habit.reminderEnabled || habit.archivedAt != null || habit.pausedAt != null) return;
 
-    final weekdays = habit.scheduleType == 1
-        ? [for (var day = 1; day <= 7; day++) if ((habit.weekdayMask & (1 << (day - 1))) != 0) day]
-        : <int>[];
-
-    if (weekdays.isEmpty) {
-      await _schedule(id: _notificationId(habit.id, 0, false), habit: habit,
-          hour: habit.reminderHour, minute: habit.reminderMinute, weekday: null, isNudge: false);
-      if (habit.partialNudgeEnabled) {
-        await _schedule(id: _notificationId(habit.id, 0, true), habit: habit,
-            hour: habit.partialNudgeHour, minute: habit.partialNudgeMinute, weekday: null, isNudge: true);
-      }
-    } else {
-      for (final weekday in weekdays) {
-        await _schedule(id: _notificationId(habit.id, weekday, false), habit: habit,
-            hour: habit.reminderHour, minute: habit.reminderMinute, weekday: weekday, isNudge: false);
-        if (habit.partialNudgeEnabled) {
-          await _schedule(id: _notificationId(habit.id, weekday, true), habit: habit,
-              hour: habit.partialNudgeHour, minute: habit.partialNudgeMinute, weekday: weekday, isNudge: true);
-        }
-      }
+    final plan = planReminders(
+      now: DateTime.now(),
+      schedule: scheduleForHabit(habit),
+      startDate: habit.createdAt,
+      hour: habit.reminderHour,
+      minute: habit.reminderMinute,
+      nudgeEnabled: habit.partialNudgeEnabled,
+      nudgeHour: habit.partialNudgeHour,
+      nudgeMinute: habit.partialNudgeMinute,
+      doneToday: doneToday,
+    );
+    for (final reminder in plan) {
+      await _schedule(habit: habit, reminder: reminder);
     }
   }
 
-  Future<void> _schedule({
-    required int id,
-    required Habit habit,
-    required int hour,
-    required int minute,
-    required int? weekday,
-    required bool isNudge,
-  }) async {
-    final now = tz.TZDateTime.now(tz.local);
-    var scheduled = tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
-    if (weekday == null) {
-      if (!scheduled.isAfter(now)) scheduled = scheduled.add(const Duration(days: 1));
-    } else {
-      var daysAhead = (weekday - now.weekday + 7) % 7;
-      if (daysAhead == 0 && !scheduled.isAfter(now)) daysAhead = 7;
-      scheduled = scheduled.add(Duration(days: daysAhead));
-    }
-
+  Future<void> _schedule({required Habit habit, required PlannedReminder reminder}) async {
     const details = NotificationDetails(
       android: AndroidNotificationDetails(
         _channelId,
@@ -121,20 +102,17 @@ class HabitNotificationService {
         actions: [AndroidNotificationAction('done', 'Done', showsUserInterface: false)],
       ),
     );
-
+    final when = reminder.when;
     await _plugin.zonedSchedule(
-      id,
-      isNudge ? 'A little Ember reminder' : habit.name,
-      isNudge
+      reminderNotificationId(habit.id, when, nudge: reminder.nudge),
+      reminder.nudge ? 'A little Ember reminder' : habit.name,
+      reminder.nudge
           ? 'A second reminder for ${habit.name}. Keep your momentum going.'
           : 'A small step today keeps your streak alive.',
-      scheduled,
+      tz.TZDateTime(tz.local, when.year, when.month, when.day, when.hour, when.minute),
       details,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: weekday == null
-          ? DateTimeComponents.time
-          : DateTimeComponents.dayOfWeekAndTime,
       payload: habit.id.toString(),
     );
   }
@@ -143,11 +121,24 @@ class HabitNotificationService {
 
   Future<void> _cancelHabit(int habitId) async {
     await initialize();
+    // Older versions scheduled repeating reminders under these ids.
     for (var day = 0; day <= 7; day++) {
       await _plugin.cancel(_notificationId(habitId, day, false));
       await _plugin.cancel(_notificationId(habitId, day, true));
     }
+    for (final pending in await _plugin.pendingNotificationRequests()) {
+      if (isReminderIdOf(pending.id, habitId)) await _plugin.cancel(pending.id);
+    }
   }
+
+  /// Drops today's reminders for a habit that was just finished (for example
+  /// from the widget or the notification's Done button, when the app is closed).
+  Future<void> cancelToday(int habitId) => _safely(() async {
+        await initialize();
+        final today = startOfDay(DateTime.now());
+        await _plugin.cancel(reminderNotificationId(habitId, today, nudge: false));
+        await _plugin.cancel(reminderNotificationId(habitId, today, nudge: true));
+      });
 
   static int _notificationId(int habitId, int weekday, bool nudge) =>
       habitId * 100 + (nudge ? 50 : 0) + weekday + 1;
@@ -295,6 +286,7 @@ class HabitNotificationService {
       if (habit == null) return;
       final target = habit.taskType == 2 ? habit.targetDurationSeconds : habit.dailyTarget;
       await db.setCompletion(habitId: habit.id, day: dayKey(DateTime.now()), amount: target);
+      await instance.cancelToday(habit.id);
     } finally {
       await db.close();
     }

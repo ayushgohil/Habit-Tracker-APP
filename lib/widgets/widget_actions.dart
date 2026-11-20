@@ -4,6 +4,7 @@ import '../core/day.dart';
 import '../core/streak.dart';
 import '../data/database.dart';
 import '../data/providers.dart';
+import '../notifications/habit_notification_service.dart';
 import 'home_screen_widget.dart';
 
 /// Logs one tap for [habitId] on [day]. Returns false (and changes nothing)
@@ -30,6 +31,10 @@ Future<void> emberWidgetBackground(Uri? uri) async {
   try {
     final day = startOfDay(DateTime.now());
     await logTapFromWidget(db, id, day);
+    final views = await loadViewsOn(db, day);
+    if (views.any((v) => v.habit.id == id && v.isDone)) {
+      await HabitNotificationService.instance.cancelToday(id);
+    }
     // Redraw the widget right away with the new progress.
     await HomeScreenWidget.instance.sync(await loadViewsOn(db, day), day);
   } catch (error) {

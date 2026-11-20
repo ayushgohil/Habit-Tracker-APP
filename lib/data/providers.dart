@@ -120,7 +120,7 @@ AsyncValue<List<HabitView>> _viewsFor(
 /// The habits as they look on [day], read straight from [db]. Used where no
 /// providers exist, such as the home-screen widget's background tap.
 Future<List<HabitView>> loadViewsOn(AppDatabase db, DateTime day) async {
-  final habits = await db.watchActiveHabits().first;
+  final habits = await db.activeHabitsNow();
   final completions = await db.select(db.completions).get();
   final goals = await db.select(db.habitGoals).get();
   return _viewsFor(
