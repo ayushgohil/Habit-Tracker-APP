@@ -245,6 +245,7 @@ class HabitActions {
       _db.getDayNote(day: dayKey(day));
   Future<void> saveNote(DateTime day, String note) =>
       _db.setDayNote(day: dayKey(day), note: note);
+  Future<void> setNotePinned(String day, bool pinned) => _db.setNotePinned(day: day, pinned: pinned);
   Future<int> add({
     required String name, required String iconKey, required int colorValue,
     required Schedule schedule, required int dailyTarget, required int sortOrder,
@@ -386,4 +387,7 @@ class HabitActions {
     await HabitNotificationService.instance.cancelTimer(id);
   }
 }
+/// Every day note, newest first.
+final allNotesProvider = StreamProvider<List<DayNote>>((ref) => ref.watch(databaseProvider).watchNotes());
+
 final habitActionsProvider = Provider<HabitActions>((ref) => HabitActions(ref.watch(databaseProvider)));

@@ -12,6 +12,7 @@ import '../../health/health_sync.dart';
 import '../../theme/ember_theme.dart';
 import '../add_habit/add_habit_screen.dart';
 import '../appearance/appearance_sheet.dart';
+import '../notes/notes_screen.dart';
 import 'up_next_fold.dart';
 import '../common/text_dialogs.dart';
 import '../backup/backup_screen.dart';
@@ -129,6 +130,7 @@ class HomeScreen extends ConsumerWidget {
                 onToday: () => ref.read(todayProvider.notifier).state = currentDay(),
                 onNote: () => _editDayNote(context, ref, selectedDay),
                 onLibrary: () => _openLibrary(context),
+                onNotes: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const NotesScreen())),
                 onBackup: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const BackupScreen())),
               ),
             ),
@@ -211,13 +213,14 @@ class HomeScreen extends ConsumerWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.day, required this.views, required this.onPickDay, required this.onToday, required this.onNote, required this.onLibrary, required this.onBackup});
+  const _Header({required this.day, required this.views, required this.onPickDay, required this.onToday, required this.onNote, required this.onLibrary, required this.onNotes, required this.onBackup});
   final DateTime day;
   final List<HabitView>? views;
   final VoidCallback onPickDay;
   final VoidCallback onToday;
   final VoidCallback onNote;
   final VoidCallback onLibrary;
+  final VoidCallback onNotes;
   final VoidCallback onBackup;
 
   @override
@@ -280,6 +283,12 @@ class _Header extends StatelessWidget {
                     ),
                   ),
                   if (!isToday) TextButton(onPressed: onToday, child: const Text('Today')),
+                  IconButton(
+                    key: const Key('notes-button'),
+                    tooltip: 'All notes',
+                    onPressed: onNotes,
+                    icon: Icon(Icons.sticky_note_2_outlined, color: EmberColors.textMuted),
+                  ),
                   Icon(Icons.calendar_month_rounded, color: EmberColors.glow),
                 ],
               ),
