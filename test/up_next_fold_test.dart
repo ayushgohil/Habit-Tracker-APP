@@ -9,7 +9,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'home_flow_test.dart' show settle;
 
-Future<AppDatabase> start(WidgetTester tester, int habits) async {
+Future<AppDatabase> start(WidgetTester tester, int habits, {Map<String, Object> saved = const {}}) async {
+  SharedPreferences.setMockInitialValues(saved);
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = const Size(411, 800);
   addTearDown(tester.view.reset);
@@ -60,8 +61,7 @@ void main() {
 
 void foldPersistence() {
   testWidgets('a saved fold choice is used when the app starts', (tester) async {
-    SharedPreferences.setMockInitialValues({'up_next_open': false});
-    final db = await start(tester, 3); // few habits would normally start open
+    final db = await start(tester, 3, saved: {'up_next_open': false}); // few habits would normally start open
     await tester.pump(const Duration(milliseconds: 50));
     await settle(tester);
     expect(find.byType(ReorderableListView), findsNothing);
@@ -69,7 +69,6 @@ void foldPersistence() {
   });
 
   testWidgets('folding the list is saved', (tester) async {
-    SharedPreferences.setMockInitialValues({});
     final db = await start(tester, 3);
     await tester.tap(find.byKey(const Key('up-next-toggle')));
     await settle(tester);
