@@ -1,4 +1,5 @@
 import '../core/day.dart';
+import '../core/goals.dart' show parseDayKey;
 import 'database.dart';
 
 class CsvImportResult {
