@@ -55,6 +55,13 @@ class HabitView {
   final int target;
   Streak get streak => stats.currentStreak;
   bool get isDone => countToday >= target;
+
+  /// "750 / 2000 ml" while a counted habit is partly done, otherwise null.
+  String? get progressText {
+    if (habit.taskType == HabitTaskType.timed.index || target <= 1 || countToday <= 0 || isDone) return null;
+    final unit = habit.unitLabel.trim();
+    return unit.isEmpty ? '$countToday / $target' : '$countToday / $target $unit';
+  }
   double get progress => target <= 0 ? 0 : (countToday / target).clamp(0.0, 1.0).toDouble();
 }
 
@@ -238,7 +245,7 @@ class HabitActions {
   Future<void> setDayAmount(int habitId, DateTime day, int amount) =>
       _db.setCompletion(habitId: habitId, day: dayKey(day), amount: amount);
   Future<void> tap(HabitView view, DateTime day) =>
-      setAmount(view, day, view.isDone ? 0 : view.countToday + 1);
+      setAmount(view, day, view.isDone ? 0 : view.countToday + view.habit.stepSize);
   Future<void> setTimedProgress(HabitView view, DateTime day, int seconds) =>
       setAmount(view, day, seconds);
   Future<String?> loadNote(DateTime day) =>
@@ -255,8 +262,12 @@ class HabitActions {
     bool partialNudgeEnabled = false, int partialNudgeHour = 21, int partialNudgeMinute = 0,
     DateTime? startDate,
     int healthMetric = 0,
+    String unitLabel = '',
+    int stepSize = 1,
+    String extraReminders = '',
   }) => _db.insertHabit(HabitsCompanion.insert(
     name: name, iconKey: iconKey, colorValue: colorValue, healthMetric: Value(healthMetric),
+    unitLabel: Value(unitLabel), stepSize: Value(stepSize), extraReminders: Value(extraReminders),
     createdAt: startDate == null ? const Value.absent() : Value(startDate),
     scheduleType: Value(schedule.type.index), weekdayMask: Value(schedule.weekdayMask),
     timesPerWeek: Value(schedule.timesPerWeek), dailyTarget: Value(dailyTarget),
@@ -275,10 +286,14 @@ class HabitActions {
     DateTime? startDate,
     bool applyToWholeHistory = false,
     int healthMetric = 0,
+    String unitLabel = '',
+    int stepSize = 1,
+    String extraReminders = '',
   }) async {
     final before = await (_db.select(_db.habits)..where((h) => h.id.equals(id))).getSingleOrNull();
     await _db.updateHabit(id, HabitsCompanion(
     name: Value(name), iconKey: Value(iconKey), colorValue: Value(colorValue), healthMetric: Value(healthMetric),
+    unitLabel: Value(unitLabel), stepSize: Value(stepSize), extraReminders: Value(extraReminders),
     createdAt: startDate == null ? const Value.absent() : Value(startDate),
     scheduleType: Value(schedule.type.index), weekdayMask: Value(schedule.weekdayMask),
     timesPerWeek: Value(schedule.timesPerWeek), intervalDays: Value(schedule.intervalDays),

@@ -17,7 +17,7 @@ Future<bool> logTapFromWidget(AppDatabase db, int habitId, DateTime day) async {
   if (view == null) return false;
   if (view.habit.taskType == HabitTaskType.timed.index || view.habit.healthMetric != 0) return false;
   if (!view.schedule.isDue(day) || view.isDone) return false;
-  await db.setCompletion(habitId: habitId, day: dayKey(day), amount: view.countToday + 1);
+  await db.setCompletion(habitId: habitId, day: dayKey(day), amount: view.countToday + view.habit.stepSize);
   return true;
 }
 

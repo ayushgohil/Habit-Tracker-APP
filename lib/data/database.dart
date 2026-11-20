@@ -61,6 +61,16 @@ class Habits extends Table {
 
   /// Index into `HealthMetric`; non-zero habits are filled in from Health Connect.
   IntColumn get healthMetric => integer().withDefault(const Constant(0))();
+
+  /// What a count is measured in ("ml", "pages"); empty for plain completions.
+  TextColumn get unitLabel => text().withDefault(const Constant(''))();
+
+  /// How much one tap adds to today's count.
+  IntColumn get stepSize => integer().withDefault(const Constant(1))();
+
+  /// Extra reminder times beyond the main one, as "HH:mm,HH:mm" (for example
+  /// each dose of a medicine).
+  TextColumn get extraReminders => text().withDefault(const Constant(''))();
 }
 
 class Completions extends Table {
@@ -130,7 +140,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -161,6 +171,11 @@ class AppDatabase extends _$AppDatabase {
           // habit column and so needs this one to exist.
           if (from < 7) {
             await m.addColumn(habits, habits.healthMetric);
+          }
+          if (from < 9) {
+            await m.addColumn(habits, habits.unitLabel);
+            await m.addColumn(habits, habits.stepSize);
+            await m.addColumn(habits, habits.extraReminders);
           }
           if (from < 8) {
             await m.addColumn(dayNotes, dayNotes.pinned);

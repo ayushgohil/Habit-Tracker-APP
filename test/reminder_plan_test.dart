@@ -80,12 +80,38 @@ void main() {
     final ids = <int>{};
     for (var i = 0; i < reminderHorizonDays; i++) {
       final day = DateTime(2026, 11, 20 + i);
-      for (final nudge in [false, true]) {
-        final id = reminderNotificationId(7, day, nudge: nudge);
+      for (var slot = 0; slot < firstExtraSlot + maxExtraReminders; slot++) {
+        final id = reminderNotificationId(7, day, slot: slot);
         expect(isReminderIdOf(id, 7), isTrue);
         expect(isReminderIdOf(id, 8), isFalse);
         expect(ids.add(id), isTrue);
       }
     }
+  });
+
+  test('extra reminder times (other doses) are planned after the main one', () {
+    final reminders = planReminders(
+      now: morning,
+      schedule: const Schedule(),
+      startDate: start,
+      hour: 8,
+      minute: 0,
+      nudgeEnabled: false,
+      nudgeHour: 21,
+      nudgeMinute: 0,
+      doneToday: false,
+      extraTimes: const [(14, 0), (21, 30)],
+      days: 1,
+    );
+    expect(reminders.map((r) => r.when.hour), [14, 21]); // 8:00 has passed (it is 9:00)
+    expect(reminders.map((r) => r.slot), [firstExtraSlot, firstExtraSlot + 1]);
+    expect(reminders.every((r) => r.extra), isTrue);
+  });
+
+  test('extra times are read from and written to text safely', () {
+    expect(parseExtraReminders('08:00, 14:30,bad,25:00,08:00,9:05'), [(8, 0), (14, 30), (9, 5)]);
+    expect(parseExtraReminders(''), isEmpty);
+    expect(parseExtraReminders('1:00,2:00,3:00,4:00,5:00').length, maxExtraReminders);
+    expect(formatExtraReminders([(8, 0), (14, 5)]), '08:00,14:05');
   });
 }

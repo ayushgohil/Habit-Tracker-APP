@@ -154,3 +154,63 @@ class _LogTimeDialogState extends State<_LogTimeDialog> {
     );
   }
 }
+
+
+/// Asks for a whole number to add to a counted habit (for example ml of
+/// water). Returns it, or null if cancelled or not a positive number.
+Future<int?> showAmountDialog(
+  BuildContext context, {
+  required String habitName,
+  required String unit,
+}) {
+  return showDialog<int>(
+    context: context,
+    builder: (_) => _AmountDialog(habitName: habitName, unit: unit),
+  );
+}
+
+class _AmountDialog extends StatefulWidget {
+  const _AmountDialog({required this.habitName, required this.unit});
+  final String habitName;
+  final String unit;
+
+  @override
+  State<_AmountDialog> createState() => _AmountDialogState();
+}
+
+class _AmountDialogState extends State<_AmountDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.habitName),
+      content: TextField(
+        key: const Key('amount-field'),
+        controller: _controller,
+        autofocus: true,
+        keyboardType: TextInputType.number,
+        decoration: InputDecoration(
+          labelText: 'Amount to add',
+          suffixText: widget.unit.isEmpty ? null : widget.unit,
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+        FilledButton(
+          onPressed: () {
+            final typed = int.tryParse(_controller.text.trim());
+            Navigator.of(context).pop(typed != null && typed > 0 ? typed : null);
+          },
+          child: const Text('Add'),
+        ),
+      ],
+    );
+  }
+}
