@@ -122,12 +122,12 @@ class _StatsGrid extends StatelessWidget {
         crossAxisCount: 2,
         mainAxisSpacing: 10,
         crossAxisSpacing: 10,
-        mainAxisExtent: 76,
+        mainAxisExtent: 84,
       ),
       children: [
         for (final t in tiles)
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
             decoration: BoxDecoration(
               color: EmberColors.surface,
               borderRadius: BorderRadius.circular(16),
