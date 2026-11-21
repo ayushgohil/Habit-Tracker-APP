@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/day.dart';
 import '../core/goals.dart';
 import '../core/streak.dart';
+import '../health/health_writer.dart';
 import '../core/timer.dart';
 import 'database.dart';
 import 'day_start.dart';
@@ -287,8 +288,10 @@ final habitHistoryProvider = Provider.family<HabitHistory?, int>((ref, id) {
 class HabitActions {
   HabitActions(this._db);
   final AppDatabase _db;
-  Future<void> setAmount(HabitView view, DateTime day, int amount) =>
-      _db.setCompletion(habitId: view.habit.id, day: dayKey(day), amount: amount);
+  Future<void> setAmount(HabitView view, DateTime day, int amount) async {
+    await _db.setCompletion(habitId: view.habit.id, day: dayKey(day), amount: amount);
+    await mirrorToHealth(view.habit, view.countToday, amount, day);
+  }
   /// Sets what was logged for a habit on any day (used by the calendar).
   Future<void> setDayAmount(int habitId, DateTime day, int amount) =>
       _db.setCompletion(habitId: habitId, day: dayKey(day), amount: amount);
@@ -315,9 +318,11 @@ class HabitActions {
     String extraReminders = '',
     int sessionSeconds = 0,
     bool limitMode = false,
+    String linkUrl = '',
+    bool writeToHealth = false,
   }) => _db.insertHabit(HabitsCompanion.insert(
     name: name, iconKey: iconKey, colorValue: colorValue, healthMetric: Value(healthMetric),
-    unitLabel: Value(unitLabel), stepSize: Value(stepSize), extraReminders: Value(extraReminders), sessionSeconds: Value(sessionSeconds), limitMode: Value(limitMode),
+    unitLabel: Value(unitLabel), stepSize: Value(stepSize), extraReminders: Value(extraReminders), sessionSeconds: Value(sessionSeconds), limitMode: Value(limitMode), linkUrl: Value(linkUrl), writeToHealth: Value(writeToHealth),
     createdAt: startDate == null ? const Value.absent() : Value(startDate),
     scheduleType: Value(schedule.type.index), weekdayMask: Value(schedule.weekdayMask),
     timesPerWeek: Value(schedule.timesPerWeek), dailyTarget: Value(dailyTarget),
@@ -341,11 +346,13 @@ class HabitActions {
     String extraReminders = '',
     int sessionSeconds = 0,
     bool limitMode = false,
+    String linkUrl = '',
+    bool writeToHealth = false,
   }) async {
     final before = await (_db.select(_db.habits)..where((h) => h.id.equals(id))).getSingleOrNull();
     await _db.updateHabit(id, HabitsCompanion(
     name: Value(name), iconKey: Value(iconKey), colorValue: Value(colorValue), healthMetric: Value(healthMetric),
-    unitLabel: Value(unitLabel), stepSize: Value(stepSize), extraReminders: Value(extraReminders), sessionSeconds: Value(sessionSeconds), limitMode: Value(limitMode),
+    unitLabel: Value(unitLabel), stepSize: Value(stepSize), extraReminders: Value(extraReminders), sessionSeconds: Value(sessionSeconds), limitMode: Value(limitMode), linkUrl: Value(linkUrl), writeToHealth: Value(writeToHealth),
     createdAt: startDate == null ? const Value.absent() : Value(startDate),
     scheduleType: Value(schedule.type.index), weekdayMask: Value(schedule.weekdayMask),
     timesPerWeek: Value(schedule.timesPerWeek), intervalDays: Value(schedule.intervalDays),

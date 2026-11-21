@@ -6,7 +6,9 @@ import '../../core/day.dart';
 import '../../core/habit_icons.dart';
 import '../../core/health.dart';
 import '../../core/reminder_plan.dart';
+import '../../core/link.dart';
 import '../../core/streak.dart';
+import '../../health/health_writer.dart';
 import '../../core/timer.dart';
 import '../../data/database.dart';
 import '../../data/providers.dart';
@@ -30,6 +32,8 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
   final _duration = TextEditingController(text: '30');
   final _session = TextEditingController();
   final _unit = TextEditingController();
+  final _link = TextEditingController();
+  bool _writeHealth = false;
   final _step = TextEditingController(text: '1');
   List<(int, int)> _extraTimes = [];
   String _icon = habitIconEntries.first.key;
@@ -61,6 +65,8 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
     _name.text = h.name;
     _target.text = h.dailyTarget.toString();
     _unit.text = h.unitLabel;
+    _link.text = h.linkUrl;
+    _writeHealth = h.writeToHealth;
     _step.text = h.stepSize.toString();
     _extraTimes = parseExtraReminders(h.extraReminders);
     _duration.text = (h.targetDurationSeconds ~/ 60).toString();
@@ -89,6 +95,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
     _duration.dispose();
     _session.dispose();
     _unit.dispose();
+    _link.dispose();
     _step.dispose();
     super.dispose();
   }
@@ -105,6 +112,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
       _taskType = t.taskType;
       _twoDayRule = false;
       _limit = false;
+      _writeHealth = false;
       _health = HealthMetric.none;
       _unit.text = t.unit;
       _step.text = '${t.step}';
@@ -132,6 +140,11 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
   /// timed habits, and ones filled in from Health Connect, keep the defaults.
   bool get _countsInUnits =>
       _health == HealthMetric.none && _taskType == HabitTaskType.normal;
+  /// The link to save: cleaned up, or '' for none. Null when what was typed is not a link.
+  String? get _linkValue => normalizeLink(_link.text);
+
+  /// Water in millilitres can also be written to Health Connect.
+  bool get _writeHealthValue => _countsInUnits && countsInMillilitres(_unit.text) && _writeHealth;
   String get _unitValue => _countsInUnits ? _unit.text.trim() : '';
   int get _stepValue => _countsInUnits ? _positive(_step, 1, _targetMax) : 1;
   /// A limit ("stay under") only makes sense for a plain timed habit.
@@ -222,6 +235,12 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
 
   Future<void> _save() async {
     final name = _name.text.trim();
+    if (_linkValue == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('That link does not look right. Try a web address like example.com.')),
+      );
+      return;
+    }
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Give your habit a name.')),
@@ -317,6 +336,8 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
         extraReminders: _extraValue,
         sessionSeconds: _sessionValue,
         limitMode: _limitValue,
+        linkUrl: _linkValue ?? '',
+        writeToHealth: _writeHealthValue,
       );
     } else {
       savedHabitId = widget.habit!.id;
@@ -344,6 +365,8 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
         extraReminders: _extraValue,
         sessionSeconds: _sessionValue,
         limitMode: _limitValue,
+        linkUrl: _linkValue ?? '',
+        writeToHealth: _writeHealthValue,
       );
     }
     final db = ref.read(databaseProvider);
@@ -512,6 +535,23 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(suffixText: _unit.text.trim().isEmpty ? null : _unit.text.trim()),
               ),
+              if (countsInMillilitres(_unit.text))
+                SwitchListTile(
+                  key: const Key('health-write-switch'),
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Save to Health Connect'),
+                  subtitle: const Text('Adds each drink you log to Health Connect as water'),
+                  value: _writeHealth,
+                  onChanged: (on) async {
+                    setState(() => _writeHealth = on);
+                    if (on && !await healthWriter.requestWaterPermission() && mounted) {
+                      setState(() => _writeHealth = false);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Health Connect did not allow writing water.')),
+                      );
+                    }
+                  },
+                ),
             ],
           ],
           const _Label('Schedule'),
@@ -618,6 +658,17 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
                 subtitle: Text(_partialNudgeTime.format(context)), trailing: const Icon(Icons.access_time_rounded),
                 onTap: () => _pickReminderTime(nudge: true)),
           ],
+          const _Label('Link (optional)'),
+          TextField(
+            key: const Key('link-field'),
+            controller: _link,
+            keyboardType: TextInputType.url,
+            decoration: const InputDecoration(
+              hintText: 'example.com or an app link',
+              helperText: 'Adds an "Open link" button to the habit, for a website or an app.',
+              prefixIcon: Icon(Icons.link_rounded),
+            ),
+          ),
           const _Label('Icon'),
           IconPicker(selected: _icon, color: _color, onChanged: (key) => setState(() => _icon = key)),
           const _Label('Colour'),

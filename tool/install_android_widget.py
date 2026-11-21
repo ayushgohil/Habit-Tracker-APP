@@ -71,6 +71,28 @@ for card, label in CARDS.items():
         ANDROID + "name": "android.appwidget.provider",
         ANDROID + "resource": f"@xml/ember_{kind}_info",
     })
+# Automation: broadcasts from Tasker and friends, and the Quick Settings tile.
+if not any(r.get(ANDROID + "name") == ".EmberActionReceiver" for r in application.findall("receiver")):
+    receiver = ET.SubElement(application, "receiver", {
+        ANDROID + "name": ".EmberActionReceiver",
+        ANDROID + "exported": "true",
+    })
+    intent_filter = ET.SubElement(receiver, "intent-filter")
+    for action in ("LOG", "COMPLETE", "START", "STOP"):
+        ET.SubElement(intent_filter, "action", {ANDROID + "name": f"{package}.action.{action}"})
+if not any(x.get(ANDROID + "name") == ".EmberTileService" for x in application.findall("service")):
+    service = ET.SubElement(application, "service", {
+        ANDROID + "name": ".EmberTileService",
+        ANDROID + "exported": "true",
+        ANDROID + "label": "Ember",
+        ANDROID + "icon": "@drawable/ember_tile_icon",
+        ANDROID + "permission": "android.permission.BIND_QUICK_SETTINGS_TILE",
+    })
+    intent_filter = ET.SubElement(service, "intent-filter")
+    ET.SubElement(intent_filter, "action", {ANDROID + "name": "android.service.quicksettings.action.QS_TILE"})
+# The app lock asks the phone for a fingerprint, face or screen lock.
+if "android.permission.USE_BIOMETRIC" not in {p.get(ANDROID + "name") for p in tree.getroot().findall("uses-permission")}:
+    ET.SubElement(tree.getroot(), "uses-permission", {ANDROID + "name": "android.permission.USE_BIOMETRIC"})
 config = ".EmberWidgetConfigActivity"
 if not any(a.get(ANDROID + "name") == config for a in application.findall("activity")):
     activity_el = ET.SubElement(application, "activity", {

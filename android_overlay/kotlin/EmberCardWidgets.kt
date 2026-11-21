@@ -20,7 +20,7 @@ import es.antonborri.home_widget.HomeWidgetBackgroundIntent
  */
 private const val PREFS = "HomeWidgetPreferences"
 
-class EmberHabit(val id: Int, val name: String, val color: Int, val tappable: Boolean)
+class EmberHabit(val id: Int, val name: String, val color: Int, val tappable: Boolean, val done: Boolean)
 
 object EmberCards {
     fun habits(context: Context): List<EmberHabit> {
@@ -30,7 +30,7 @@ object EmberCards {
             val id = p.getOrNull(0)?.toIntOrNull()
             val color = p.getOrNull(2)?.toLongOrNull()
             if (id == null || color == null || p.size < 4) null
-            else EmberHabit(id, p[1], color.toInt(), p[3] == "1")
+            else EmberHabit(id, p[1], color.toInt(), p[3] == "1", p.getOrNull(4) == "1")
         }
     }
 

@@ -79,6 +79,12 @@ class Habits extends Table {
   /// A timed habit that is a limit ("stay under 30 minutes"): the day is done
   /// as long as the time used stays within the goal.
   BoolColumn get limitMode => boolean().withDefault(const Constant(false))();
+
+  /// A link (web address or app link) the habit can open.
+  TextColumn get linkUrl => text().withDefault(const Constant(''))();
+
+  /// Water habits: also add each log to Health Connect.
+  BoolColumn get writeToHealth => boolean().withDefault(const Constant(false))();
 }
 
 class Completions extends Table {
@@ -148,7 +154,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -187,6 +193,10 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 10) {
             await m.addColumn(habits, habits.sessionSeconds);
+          }
+          if (from < 12) {
+            await m.addColumn(habits, habits.linkUrl);
+            await m.addColumn(habits, habits.writeToHealth);
           }
           if (from < 11) {
             await m.addColumn(habits, habits.limitMode);
