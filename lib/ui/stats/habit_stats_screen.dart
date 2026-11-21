@@ -115,13 +115,15 @@ class _StatsGrid extends StatelessWidget {
       ('Completion', '${(stats.completionRate * 100).round()}%', Icons.pie_chart_rounded),
       ('Total done', '${history.totalDone}', Icons.check_circle_rounded),
     ];
-    return GridView.count(
-      crossAxisCount: 2,
+    return GridView(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 10,
-      crossAxisSpacing: 10,
-      childAspectRatio: 2.5,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        mainAxisExtent: 76,
+      ),
       children: [
         for (final t in tiles)
           Container(
