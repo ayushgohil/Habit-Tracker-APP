@@ -12,7 +12,12 @@ S = 4  # draw at 4x and shrink for smooth edges
 W = 320
 BG = (33, 27, 24, 255)
 INK = (255, 107, 44, 255)
-FAINT = (255, 107, 44, 70)
+def mix(alpha):
+    """INK over BG as one opaque colour (drawing with alpha would punch holes)."""
+    return tuple(round(i * alpha + b * (1 - alpha)) for i, b in zip(INK[:3], BG[:3])) + (255,)
+
+
+FAINT = mix(0.27)
 OUT = Path("android_overlay/res/drawable-nodpi")
 XML = Path("android_overlay/res/xml")
 OUT.mkdir(parents=True, exist_ok=True)
@@ -57,7 +62,7 @@ def save(img, name):
 # streak
 img, d = canvas()
 centered(d, "12", 160, 140, 120)
-centered(d, "DAYS STREAK", 160, 245, 22, (255, 107, 44, 190))
+centered(d, "DAYS STREAK", 160, 245, 22, mix(0.75))
 save(img, "streak")
 
 # ring
@@ -65,7 +70,7 @@ img, d = canvas()
 ring(d, 160, 140, 88, 20, 0.7)
 d.ellipse((px(140), px(108), px(180), px(148)), fill=INK)
 d.rectangle((px(148), px(144), px(172), px(176)), fill=INK)
-centered(d, "7/10", 160, 270, 28, (255, 107, 44, 220))
+centered(d, "7/10", 160, 270, 28, mix(0.88))
 save(img, "ring")
 
 # week
@@ -74,7 +79,7 @@ for i, h in enumerate([0.5, 0.8, 0.3, 1.0, 0.65, 0.9, 0.2]):
     x = 38 + i * 40
     top = 235 - 170 * h
     d.rounded_rectangle((px(x), px(top), px(x + 22), px(235)), radius=px(11), fill=INK)
-    centered(d, "MTWTFSS"[i], x + 11, 270, 20, (255, 107, 44, 190))
+    centered(d, "MTWTFSS"[i], x + 11, 270, 20, mix(0.75))
 save(img, "week")
 
 # trend
@@ -95,8 +100,8 @@ for r in range(5):
         if n < 17 and n % 5 != 3:
             d.ellipse((px(x - 11), px(y - 11), px(x + 11), px(y + 11)), fill=INK)
         elif n < 17:
-            d.line((px(x - 7), px(y - 7), px(x + 7), px(y + 7)), fill=(255, 107, 44, 170), width=px(3))
-            d.line((px(x + 7), px(y - 7), px(x - 7), px(y + 7)), fill=(255, 107, 44, 170), width=px(3))
+            d.line((px(x - 7), px(y - 7), px(x + 7), px(y + 7)), fill=mix(0.67), width=px(3))
+            d.line((px(x + 7), px(y - 7), px(x - 7), px(y + 7)), fill=mix(0.67), width=px(3))
         elif n == 17:
             d.ellipse((px(x - 10), px(y - 10), px(x + 10), px(y + 10)), outline=INK, width=px(3))
         else:
