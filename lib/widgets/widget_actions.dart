@@ -7,6 +7,7 @@ import '../data/day_start.dart';
 import '../data/providers.dart';
 import '../notifications/habit_notification_service.dart';
 import 'home_screen_widget.dart';
+import 'widget_cards.dart';
 
 /// Logs one tap for [habitId] on [day]. Returns false (and changes nothing)
 /// when the habit is gone, not scheduled that day, already done, timed or
@@ -39,6 +40,7 @@ Future<void> emberWidgetBackground(Uri? uri) async {
     }
     // Redraw the widget right away with the new progress.
     await HomeScreenWidget.instance.sync(await loadViewsOn(db, day), day);
+    await WidgetCards.instance.sync(db, day);
   } catch (error) {
     debugPrint('Ember widget tap: $error');
   } finally {

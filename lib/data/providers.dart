@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/day.dart';
 import '../core/goals.dart';
 import '../core/streak.dart';
+import '../core/timer.dart';
 import 'database.dart';
 import 'day_start.dart';
 import '../notifications/habit_notification_service.dart';
@@ -45,6 +46,7 @@ class HabitView {
     required this.stats,
     required this.schedule,
     required this.target,
+    this.atRisk = false,
   });
   final Habit habit;
   final int countToday;
@@ -54,15 +56,19 @@ class HabitView {
   /// What counts as done on the viewed day (the goal in force on that day).
   final int target;
   Streak get streak => stats.currentStreak;
-  bool get isDone => countToday >= target;
+
+  /// Not doing this today would end its streak (only set when viewing today).
+  final bool atRisk;
+  bool get isDone => habit.limitMode ? countToday <= target : countToday >= target;
 
   /// "750 / 2000 ml" while a counted habit is partly done, otherwise null.
   String? get progressText {
+    if (habit.limitMode) return 'Used ${formatClock(countToday)} of ${formatClock(target)}';
     if (habit.taskType == HabitTaskType.timed.index || target <= 1 || countToday <= 0 || isDone) return null;
     final unit = habit.unitLabel.trim();
     return unit.isEmpty ? '$countToday / $target' : '$countToday / $target $unit';
   }
-  double get progress => target <= 0 ? 0 : (countToday / target).clamp(0.0, 1.0).toDouble();
+  double get progress => habit.limitMode ? (isDone ? 1.0 : 0.0) : target <= 0 ? 0 : (countToday / target).clamp(0.0, 1.0).toDouble();
 }
 
 /// What counts as "done" for a habit right now, from the habit's own columns.
@@ -107,14 +113,26 @@ HabitStats _statsFor(Habit habit, GoalTimeline timeline, Map<String, int> amount
     // Periods are laid out with the current schedule. Each day is judged
     // against the goal that applied on that day.
     schedule: timeline.latest.schedule,
-    doneDays: timeline.doneDays(amounts),
+    doneDays: _doneDays(habit, timeline, amounts, today),
     createdAt: habit.createdAt,
     today: today,
     taskType: HabitTaskType.values[habit.taskType],
     twoDayRule: habit.twoDayRule,
-    dayProgress: timeline.progressByDay(amounts),
+    dayProgress: _progressByDay(habit, timeline, amounts, today),
   );
 }
+
+/// The days that count as done. A limit habit is done on every day it stayed
+/// within its limit, logged or not; any other habit on the days it reached its goal.
+Set<String> _doneDays(Habit habit, GoalTimeline timeline, Map<String, int> amounts, DateTime through) =>
+    habit.limitMode
+        ? timeline.underLimitDays(amounts, habit.createdAt, through)
+        : timeline.doneDays(amounts);
+
+Map<String, double> _progressByDay(Habit habit, GoalTimeline timeline, Map<String, int> amounts, DateTime through) =>
+    habit.limitMode
+        ? {for (final key in _doneDays(habit, timeline, amounts, through)) key: 1.0}
+        : timeline.progressByDay(amounts);
 
 AsyncValue<List<HabitView>> _viewsFor(
   AsyncValue<List<Habit>> h,
@@ -156,6 +174,22 @@ Future<List<HabitView>> loadViewsOn(AppDatabase db, DateTime day) async {
       const [];
 }
 
+/// Every active habit's history as of [day], read straight from [db].
+Future<List<HabitHistory>> loadHistoriesOn(AppDatabase db, DateTime day) async {
+  final habits = await db.activeHabitsNow();
+  final completions = await db.select(db.completions).get();
+  final goals = await db.select(db.habitGoals).get();
+  final byHabit = <int, Map<String, int>>{};
+  for (final item in completions) {
+    (byHabit[item.habitId] ??= {})[item.day] = item.amount;
+  }
+  return [
+    for (final habit in habits)
+      if (hasStartedBy(habit.createdAt, day))
+        buildHistory(habit, timelineFor(habit, goals), byHabit[habit.id] ?? const {}, day),
+  ];
+}
+
 /// The habits as they look on the day being viewed on Home.
 final habitViewsProvider = Provider<AsyncValue<List<HabitView>>>((ref) {
   return _viewsFor(
@@ -179,7 +213,18 @@ final liveTodayViewsProvider = Provider<AsyncValue<List<HabitView>>>((ref) {
 });
 
 HabitView _view(Habit habit, GoalTimeline timeline, Map<String, int> amounts, DateTime day, String key) {
+  final isToday = key == currentDayKey();
   return HabitView(
+    atRisk: isToday &&
+        !habit.limitMode &&
+        streakAtRisk(
+          schedule: timeline.latest.schedule,
+          doneDays: _doneDays(habit, timeline, amounts, day),
+          createdAt: habit.createdAt,
+          today: day,
+          taskType: HabitTaskType.values[habit.taskType],
+          twoDayRule: habit.twoDayRule,
+        ),
     habit: habit,
     countToday: amounts[key] ?? 0,
     stats: _statsFor(habit, timeline, amounts, day),
@@ -195,6 +240,7 @@ class HabitHistory {
     required this.amounts,
     required this.stats,
     required this.timeline,
+    required this.doneDays,
   });
   final Habit habit;
   final Map<String, int> amounts;
@@ -207,7 +253,8 @@ class HabitHistory {
   int targetOn(DateTime day) => timeline.targetOn(day);
   Schedule scheduleOn(DateTime day) => timeline.scheduleOn(day);
 
-  Set<String> get doneDays => timeline.doneDays(amounts);
+  /// Days that count as done (see [_doneDays]).
+  final Set<String> doneDays;
   int get totalDone => doneDays.length;
 }
 
@@ -217,6 +264,7 @@ HabitHistory buildHistory(Habit habit, GoalTimeline timeline, Map<String, int> a
     amounts: amounts,
     stats: _statsFor(habit, timeline, amounts, today),
     timeline: timeline,
+    doneDays: _doneDays(habit, timeline, amounts, today),
   );
 }
 
@@ -266,9 +314,10 @@ class HabitActions {
     int stepSize = 1,
     String extraReminders = '',
     int sessionSeconds = 0,
+    bool limitMode = false,
   }) => _db.insertHabit(HabitsCompanion.insert(
     name: name, iconKey: iconKey, colorValue: colorValue, healthMetric: Value(healthMetric),
-    unitLabel: Value(unitLabel), stepSize: Value(stepSize), extraReminders: Value(extraReminders), sessionSeconds: Value(sessionSeconds),
+    unitLabel: Value(unitLabel), stepSize: Value(stepSize), extraReminders: Value(extraReminders), sessionSeconds: Value(sessionSeconds), limitMode: Value(limitMode),
     createdAt: startDate == null ? const Value.absent() : Value(startDate),
     scheduleType: Value(schedule.type.index), weekdayMask: Value(schedule.weekdayMask),
     timesPerWeek: Value(schedule.timesPerWeek), dailyTarget: Value(dailyTarget),
@@ -291,11 +340,12 @@ class HabitActions {
     int stepSize = 1,
     String extraReminders = '',
     int sessionSeconds = 0,
+    bool limitMode = false,
   }) async {
     final before = await (_db.select(_db.habits)..where((h) => h.id.equals(id))).getSingleOrNull();
     await _db.updateHabit(id, HabitsCompanion(
     name: Value(name), iconKey: Value(iconKey), colorValue: Value(colorValue), healthMetric: Value(healthMetric),
-    unitLabel: Value(unitLabel), stepSize: Value(stepSize), extraReminders: Value(extraReminders), sessionSeconds: Value(sessionSeconds),
+    unitLabel: Value(unitLabel), stepSize: Value(stepSize), extraReminders: Value(extraReminders), sessionSeconds: Value(sessionSeconds), limitMode: Value(limitMode),
     createdAt: startDate == null ? const Value.absent() : Value(startDate),
     scheduleType: Value(schedule.type.index), weekdayMask: Value(schedule.weekdayMask),
     timesPerWeek: Value(schedule.timesPerWeek), intervalDays: Value(schedule.intervalDays),

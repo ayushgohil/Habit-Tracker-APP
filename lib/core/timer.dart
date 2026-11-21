@@ -3,6 +3,8 @@
 /// time can always be recomputed from the clock, even after the app was closed.
 library;
 
+import 'day.dart';
+
 class TimerState {
   const TimerState({this.bankedSeconds = 0, this.runningSince});
 
@@ -118,4 +120,28 @@ int normalizeSessionSeconds(int goalSeconds, int sessionSeconds) {
   if (sessionSeconds <= 0 || sessionSeconds >= goalSeconds) return 0;
   final least = (goalSeconds + maxTimerSessions - 1) ~/ maxTimerSessions;
   return sessionSeconds < least ? least : sessionSeconds;
+}
+
+/// Splits a timer's time between the days it ran on, so a session that crosses
+/// the day change (midnight, or the custom day start) credits each day for the
+/// part that fell inside it. Time banked before the last pause belongs to
+/// [startDay], the day the timer was started; the running stretch is divided at
+/// each day change.
+Map<String, int> timerShares(String startDay, TimerState state, DateTime now) {
+  final shares = <String, int>{};
+  if (state.bankedSeconds > 0) shares[startDay] = state.bankedSeconds;
+  var cursor = state.runningSince;
+  var guard = 0;
+  while (cursor != null && cursor.isBefore(now) && guard++ < 40) {
+    final clock = dayClock(cursor);
+    final nextChange = DateTime(clock.year, clock.month, clock.day + 1, 0, dayStartOffsetMinutes);
+    final end = nextChange.isBefore(now) ? nextChange : now;
+    final seconds = end.difference(cursor).inSeconds;
+    if (seconds > 0) {
+      final key = dayKey(clock);
+      shares[key] = (shares[key] ?? 0) + seconds;
+    }
+    cursor = end;
+  }
+  return shares;
 }

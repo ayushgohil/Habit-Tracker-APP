@@ -11,6 +11,7 @@ import 'theme/theme_controller.dart';
 import 'ui/home/home_screen.dart';
 import 'ui/timer/timer_screen.dart';
 import 'widgets/home_screen_widget.dart';
+import 'widgets/widget_cards.dart';
 import 'widgets/launcher_shortcuts.dart';
 
 final _navigatorKey = GlobalKey<NavigatorState>();
@@ -82,6 +83,7 @@ class _EmberAppState extends ConsumerState<EmberApp>
     if (views == null) return;
     final today = currentDay();
     HomeScreenWidget.instance.sync(views, today);
+    WidgetCards.instance.sync(ref.read(databaseProvider), today);
     _resyncRemindersIfChanged(views);
     LauncherShortcuts.instance.sync(views, today);
     final pending = _pendingShortcut;

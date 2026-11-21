@@ -124,7 +124,7 @@ void main() {
 
   testWidgets('splitting a timed habit into sessions is saved from the New habit screen', (tester) async {
     tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(411, 900);
+    tester.view.physicalSize = const Size(411, 3000);
     addTearDown(tester.view.reset);
     final appDb = AppDatabase.forTesting(NativeDatabase.memory());
     await tester.pumpWidget(ProviderScope(

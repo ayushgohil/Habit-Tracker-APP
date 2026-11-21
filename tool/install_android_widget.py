@@ -5,7 +5,6 @@ widget's Kotlin and resource files live in android_overlay/ and are copied in
 here, and the widget receiver is added to the manifest.
 """
 import re
-import shutil
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -19,14 +18,13 @@ main = Path("android/app/src/main")
 activity = next(main.glob("kotlin/**/MainActivity.kt"), None) or next(main.glob("java/**/MainActivity.*"))
 package = re.search(r"^package\s+([\w.]+)", activity.read_text(), re.M).group(1)
 
-target = activity.parent / "EmberWidgetProvider.kt"
-source = (overlay / "kotlin" / "EmberWidgetProvider.kt").read_text()
-target.write_text(source.replace("__PACKAGE__", package))
+for kotlin in (overlay / "kotlin").glob("*.kt"):
+    (activity.parent / kotlin.name).write_text(kotlin.read_text().replace("__PACKAGE__", package))
 
 for sub in ("layout", "xml", "drawable"):
     (main / "res" / sub).mkdir(parents=True, exist_ok=True)
     for file in (overlay / "res" / sub).iterdir():
-        shutil.copy(file, main / "res" / sub / file.name)
+        (main / "res" / sub / file.name).write_text(file.read_text().replace("__PACKAGE__", package))
 
 manifest = main / "AndroidManifest.xml"
 tree = ET.parse(manifest)
@@ -44,6 +42,39 @@ if not any(r.get(ANDROID + "name") == name for r in application.findall("receive
         ANDROID + "name": "android.appwidget.provider",
         ANDROID + "resource": "@xml/ember_widget_info",
     })
+# The card widgets: one receiver per kind, plus the screen that asks which
+# habit and look a new one should use.
+CARDS = {
+    ".EmberStreakWidget": "Ember: streak",
+    ".EmberRingWidget": "Ember: ring",
+    ".EmberWeekWidget": "Ember: week",
+    ".EmberTrendWidget": "Ember: trend",
+    ".EmberMonthWidget": "Ember: month",
+    ".EmberGridWidget": "Ember: habits",
+}
+for card, label in CARDS.items():
+    if any(r.get(ANDROID + "name") == card for r in application.findall("receiver")):
+        continue
+    receiver = ET.SubElement(application, "receiver", {
+        ANDROID + "name": card,
+        ANDROID + "exported": "true",
+        ANDROID + "label": label,
+    })
+    intent_filter = ET.SubElement(receiver, "intent-filter")
+    ET.SubElement(intent_filter, "action", {ANDROID + "name": "android.appwidget.action.APPWIDGET_UPDATE"})
+    ET.SubElement(receiver, "meta-data", {
+        ANDROID + "name": "android.appwidget.provider",
+        ANDROID + "resource": "@xml/ember_card_info",
+    })
+config = ".EmberWidgetConfigActivity"
+if not any(a.get(ANDROID + "name") == config for a in application.findall("activity")):
+    activity_el = ET.SubElement(application, "activity", {
+        ANDROID + "name": config,
+        ANDROID + "exported": "true",
+        ANDROID + "theme": "@android:style/Theme.Translucent.NoTitleBar",
+    })
+    intent_filter = ET.SubElement(activity_el, "intent-filter")
+    ET.SubElement(intent_filter, "action", {ANDROID + "name": "android.appwidget.action.APPWIDGET_CONFIGURE"})
 # Lets a tap on a widget row run Dart code while the app is closed.
 background = "es.antonborri.home_widget.HomeWidgetBackgroundReceiver"
 if not any(r.get(ANDROID + "name") == background for r in application.findall("receiver")):
