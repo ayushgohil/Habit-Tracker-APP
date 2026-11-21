@@ -21,10 +21,14 @@ package = re.search(r"^package\s+([\w.]+)", activity.read_text(), re.M).group(1)
 for kotlin in (overlay / "kotlin").glob("*.kt"):
     (activity.parent / kotlin.name).write_text(kotlin.read_text().replace("__PACKAGE__", package))
 
-for sub in ("layout", "xml", "drawable"):
+for sub in ("layout", "xml", "drawable", "drawable-nodpi", "values"):
     (main / "res" / sub).mkdir(parents=True, exist_ok=True)
     for file in (overlay / "res" / sub).iterdir():
-        (main / "res" / sub / file.name).write_text(file.read_text().replace("__PACKAGE__", package))
+        target = main / "res" / sub / file.name
+        if file.suffix == ".png":
+            target.write_bytes(file.read_bytes())
+        else:
+            target.write_text(file.read_text().replace("__PACKAGE__", package))
 
 manifest = main / "AndroidManifest.xml"
 tree = ET.parse(manifest)
@@ -53,6 +57,7 @@ CARDS = {
     ".EmberGridWidget": "Ember: habits",
 }
 for card, label in CARDS.items():
+    kind = card[len(".Ember"):-len("Widget")].lower()
     if any(r.get(ANDROID + "name") == card for r in application.findall("receiver")):
         continue
     receiver = ET.SubElement(application, "receiver", {
@@ -64,7 +69,7 @@ for card, label in CARDS.items():
     ET.SubElement(intent_filter, "action", {ANDROID + "name": "android.appwidget.action.APPWIDGET_UPDATE"})
     ET.SubElement(receiver, "meta-data", {
         ANDROID + "name": "android.appwidget.provider",
-        ANDROID + "resource": "@xml/ember_card_info",
+        ANDROID + "resource": f"@xml/ember_{kind}_info",
     })
 config = ".EmberWidgetConfigActivity"
 if not any(a.get(ANDROID + "name") == config for a in application.findall("activity")):

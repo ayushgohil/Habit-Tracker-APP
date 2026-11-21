@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ember_widget_streak">A big number showing how many days in a row you have kept a habit going.</string>
+    <string name="ember_widget_ring">One habit as a progress ring. Tap it to log the habit.</string>
+    <string name="ember_widget_week">This week as bars, Monday to Sunday, for one habit.</string>
+    <string name="ember_widget_trend">A line showing how one habit went over the last 30 days.</string>
+    <string name="ember_widget_month">This month as dots: done, missed, today and still to come.</string>
+    <string name="ember_widget_grid">Your habits as small progress rings, what is left to do first.</string>
+    <string name="ember_widget_list">Today\'s habits as a list, tap one to log it.</string>
+</resources>
