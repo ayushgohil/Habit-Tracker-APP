@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:ember/app.dart';
-import 'package:ember/core/day.dart';
 import 'package:ember/core/habit_templates.dart';
 import 'package:ember/core/streak.dart';
 import 'package:ember/core/timer.dart';
