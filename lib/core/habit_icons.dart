@@ -282,7 +282,6 @@ const habitIconEntries = <HabitIconEntry>[
   HabitIconEntry('directions_bus', Icons.directions_bus_rounded, 'Bus commute'),
   HabitIconEntry('two_wheeler', Icons.two_wheeler_rounded, 'Scooter motorbike'),
   HabitIconEntry('explore', Icons.explore_rounded, 'Explore compass'),
-  HabitIconEntry('camping', Icons.camping_rounded, 'Camping tent'),
   HabitIconEntry('forest', Icons.forest_rounded, 'Forest trees nature'),
   HabitIconEntry('landscape', Icons.landscape_rounded, 'Landscape mountain'),
   HabitIconEntry('beach_access', Icons.beach_access_rounded, 'Beach holiday umbrella'),
