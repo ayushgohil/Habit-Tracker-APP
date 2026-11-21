@@ -99,7 +99,7 @@ Color _readableOn(Color accent) {
   return contrast(accent, dark) >= contrast(accent, light) ? dark : light;
 }
 
-final emberPalettes = <EmberPalette>[
+const _originalPalettes = <EmberPalette>[
   EmberPalette(
     id: 'ember', name: 'Ember',
     background: Color(0xFF14110F), surface: Color(0xFF211B18), surfaceHigh: Color(0xFF2C2420), track: Color(0xFF3A302B),
@@ -172,6 +172,11 @@ final emberPalettes = <EmberPalette>[
     accent: Color(0xFF2E7DE8), glow: Color(0xFF1766C2), onAccent: Color(0xFFFFFFFF),
     text: Color(0xFF14202B), textMuted: Color(0xFF62707E),
   ),
+];
+
+/// Every look, the hand-made ones first. New ones are added at the end.
+final emberPalettes = <EmberPalette>[
+  ..._originalPalettes,
   EmberPalette.fromDark(id: 'midnight', name: 'Midnight', background: 0x0B1020, accent: 0x5B8CFF, glow: 0xA5C0FF),
   EmberPalette.fromDark(id: 'sunset', name: 'Sunset', background: 0x1A1012, accent: 0xFF7A59, glow: 0xFFC371),
   EmberPalette.fromDark(id: 'dusk', name: 'Dusk', background: 0x151221, accent: 0x9D7BFF, glow: 0xF2A7E0),
