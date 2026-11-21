@@ -174,6 +174,22 @@ Future<List<HabitView>> loadViewsOn(AppDatabase db, DateTime day) async {
       const [];
 }
 
+/// Every active habit's history as of [day], read straight from [db].
+Future<List<HabitHistory>> loadHistoriesOn(AppDatabase db, DateTime day) async {
+  final habits = await db.activeHabitsNow();
+  final completions = await db.select(db.completions).get();
+  final goals = await db.select(db.habitGoals).get();
+  final byHabit = <int, Map<String, int>>{};
+  for (final item in completions) {
+    (byHabit[item.habitId] ??= {})[item.day] = item.amount;
+  }
+  return [
+    for (final habit in habits)
+      if (hasStartedBy(habit.createdAt, day))
+        buildHistory(habit, timelineFor(habit, goals), byHabit[habit.id] ?? const {}, day),
+  ];
+}
+
 /// The habits as they look on the day being viewed on Home.
 final habitViewsProvider = Provider<AsyncValue<List<HabitView>>>((ref) {
   return _viewsFor(

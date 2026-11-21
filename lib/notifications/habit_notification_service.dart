@@ -183,6 +183,9 @@ class HabitNotificationService {
               showWhen: running,
               when: startMs,
               usesChronometer: running,
+              // Shown in full on the lock screen, like Streaks' timer there.
+              visibility: NotificationVisibility.public,
+              color: Color(habit.colorValue),
               category: AndroidNotificationCategory.stopwatch,
               actions: [
                 AndroidNotificationAction(running ? 'timer_pause' : 'timer_resume', running ? 'Pause' : 'Resume', showsUserInterface: false),
