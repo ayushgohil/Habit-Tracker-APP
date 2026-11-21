@@ -20,6 +20,37 @@ class _AppearanceSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selected = ref.watch(themeIdProvider);
+    final auto = ref.watch(autoThemeProvider);
+    final active = ref.watch(activePaletteProvider);
+    bool isSelected(EmberPalette p) =>
+        auto.enabled ? (p.dark ? p.id == auto.darkId : p.id == auto.lightId) : p.id == selected;
+    void choose(EmberPalette p) {
+      if (auto.enabled) {
+        ref.read(autoThemeProvider.notifier).select(p);
+      } else {
+        ref.read(themeIdProvider.notifier).select(p.id);
+      }
+    }
+
+    Widget group(String title, bool dark) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8, top: 4),
+              child: Text(title, style: TextStyle(color: EmberColors.textMuted, fontWeight: FontWeight.w600)),
+            ),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                for (final p in emberPalettes)
+                  if (p.dark == dark) _Swatch(palette: p, selected: isSelected(p), onTap: () => choose(p)),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
+        );
+
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
@@ -29,19 +60,21 @@ class _AppearanceSheet extends ConsumerWidget {
             Text('Look and day', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 4),
             Text('Pick a look. It applies right away.', style: TextStyle(color: EmberColors.textMuted)),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                for (final p in emberPalettes)
-                  _Swatch(
-                    palette: p,
-                    selected: p.id == selected,
-                    onTap: () => ref.read(themeIdProvider.notifier).select(p.id),
-                  ),
-              ],
+            SwitchListTile(
+              key: const Key('auto-theme-switch'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Match my phone'),
+              subtitle: Text(
+                auto.enabled
+                    ? 'Uses your chosen dark look at night and your light look by day.'
+                    : 'Switch between a dark and a light look with the phone.',
+              ),
+              value: auto.enabled,
+              onChanged: (on) => ref.read(autoThemeProvider.notifier).setEnabled(on, current: active),
             ),
+            const SizedBox(height: 8),
+            group(auto.enabled ? 'Dark look' : 'Dark', true),
+            group(auto.enabled ? 'Light look' : 'Light', false),
             const SizedBox(height: 24),
             Text('Day starts at', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 4),

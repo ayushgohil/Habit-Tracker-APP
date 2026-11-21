@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:material_ui/material_ui.dart';
 
 /// One complete look for the app: surfaces, accent and text colours.
@@ -29,9 +31,75 @@ class EmberPalette {
   final Color text;
   final Color textMuted;
   final bool dark;
+
+  /// A dark look worked out from a background and two accent colours: the
+  /// surfaces step up from the background, and text is near white.
+  factory EmberPalette.fromDark({
+    required String id,
+    required String name,
+    required int background,
+    required int accent,
+    required int glow,
+  }) {
+    final bg = Color(0xFF000000 | background);
+    final text = Color.lerp(const Color(0xFFFFFFFF), Color(0xFF000000 | accent), 0.05)!;
+    return EmberPalette(
+      id: id,
+      name: name,
+      background: bg,
+      surface: Color.lerp(bg, const Color(0xFFFFFFFF), 0.06)!,
+      surfaceHigh: Color.lerp(bg, const Color(0xFFFFFFFF), 0.11)!,
+      track: Color.lerp(bg, const Color(0xFFFFFFFF), 0.18)!,
+      accent: Color(0xFF000000 | accent),
+      glow: Color(0xFF000000 | glow),
+      onAccent: _readableOn(Color(0xFF000000 | accent)),
+      text: text,
+      textMuted: Color.lerp(text, bg, 0.45)!,
+    );
+  }
+
+  /// A light look: white cards on a tinted background, near-black text, and a
+  /// darker second colour for streaks and highlights.
+  factory EmberPalette.fromLight({
+    required String id,
+    required String name,
+    required int background,
+    required int accent,
+    required int glow,
+  }) {
+    final bg = Color(0xFF000000 | background);
+    final text = Color.lerp(const Color(0xFF000000), Color(0xFF000000 | accent), 0.12)!;
+    return EmberPalette(
+      id: id,
+      name: name,
+      dark: false,
+      background: bg,
+      surface: const Color(0xFFFFFFFF),
+      surfaceHigh: Color.lerp(bg, const Color(0xFF000000), 0.04)!,
+      track: Color.lerp(bg, const Color(0xFF000000), 0.12)!,
+      accent: Color(0xFF000000 | accent),
+      glow: Color(0xFF000000 | glow),
+      onAccent: _readableOn(Color(0xFF000000 | accent)),
+      text: text,
+      textMuted: Color.lerp(text, bg, 0.4)!,
+    );
+  }
 }
 
-const emberPalettes = <EmberPalette>[
+/// White or near-black, whichever reads better on [accent].
+Color _readableOn(Color accent) {
+  const dark = Color(0xFF14110F);
+  const light = Color(0xFFFFFFFF);
+  double contrast(Color a, Color b) {
+    final la = a.computeLuminance();
+    final lb = b.computeLuminance();
+    return (math.max(la, lb) + 0.05) / (math.min(la, lb) + 0.05);
+  }
+
+  return contrast(accent, dark) >= contrast(accent, light) ? dark : light;
+}
+
+final emberPalettes = <EmberPalette>[
   EmberPalette(
     id: 'ember', name: 'Ember',
     background: Color(0xFF14110F), surface: Color(0xFF211B18), surfaceHigh: Color(0xFF2C2420), track: Color(0xFF3A302B),
@@ -104,6 +172,26 @@ const emberPalettes = <EmberPalette>[
     accent: Color(0xFF2E7DE8), glow: Color(0xFF1766C2), onAccent: Color(0xFFFFFFFF),
     text: Color(0xFF14202B), textMuted: Color(0xFF62707E),
   ),
+  EmberPalette.fromDark(id: 'midnight', name: 'Midnight', background: 0x0B1020, accent: 0x5B8CFF, glow: 0xA5C0FF),
+  EmberPalette.fromDark(id: 'sunset', name: 'Sunset', background: 0x1A1012, accent: 0xFF7A59, glow: 0xFFC371),
+  EmberPalette.fromDark(id: 'dusk', name: 'Dusk', background: 0x151221, accent: 0x9D7BFF, glow: 0xF2A7E0),
+  EmberPalette.fromDark(id: 'berry', name: 'Berry', background: 0x190F1A, accent: 0xE04DB0, glow: 0xFF9ADA),
+  EmberPalette.fromDark(id: 'aqua', name: 'Aqua', background: 0x0A1417, accent: 0x22D3EE, glow: 0x8BF0FF),
+  EmberPalette.fromDark(id: 'lime', name: 'Lime', background: 0x101407, accent: 0xA3E635, glow: 0xE4FF8A),
+  EmberPalette.fromDark(id: 'coral', name: 'Coral', background: 0x1A0F0E, accent: 0xFF7F6B, glow: 0xFFBE98),
+  EmberPalette.fromDark(id: 'indigo', name: 'Indigo', background: 0x0E0F1F, accent: 0x6D70F5, glow: 0xB3B5FF),
+  EmberPalette.fromDark(id: 'copper', name: 'Copper', background: 0x17110D, accent: 0xD98A4E, glow: 0xF3C79A),
+  EmberPalette.fromDark(id: 'sakura', name: 'Sakura', background: 0x1A1115, accent: 0xF59EC9, glow: 0xFFD3E8),
+  EmberPalette.fromDark(id: 'emerald', name: 'Emerald', background: 0x08130E, accent: 0x10B981, glow: 0x6EE7B7),
+  EmberPalette.fromDark(id: 'sand', name: 'Sand', background: 0x16130E, accent: 0xE0B979, glow: 0xF7E2B8),
+  EmberPalette.fromDark(id: 'steel', name: 'Steel', background: 0x0F141A, accent: 0x7AA2D6, glow: 0xBBD6F5),
+  EmberPalette.fromDark(id: 'neon', name: 'Neon', background: 0x0A0A12, accent: 0x00F5A0, glow: 0x00D1FF),
+  EmberPalette.fromLight(id: 'cream', name: 'Cream', background: 0xFBF7EE, accent: 0xC2410C, glow: 0x9A3412),
+  EmberPalette.fromLight(id: 'sky', name: 'Sky', background: 0xEEF6FC, accent: 0x0369A1, glow: 0x075985),
+  EmberPalette.fromLight(id: 'blush', name: 'Blush', background: 0xFDF2F4, accent: 0xBE185D, glow: 0x9D174D),
+  EmberPalette.fromLight(id: 'meadow', name: 'Meadow', background: 0xF1F8F2, accent: 0x2B8A4F, glow: 0x1F6B3B),
+  EmberPalette.fromLight(id: 'lilac', name: 'Lilac', background: 0xF5F1FC, accent: 0x6D3FE0, glow: 0x5B21B6),
+  EmberPalette.fromLight(id: 'lemon', name: 'Lemon', background: 0xFFFBEA, accent: 0xA16207, glow: 0x854D0E),
 ];
 
 EmberPalette paletteById(String? id) =>
