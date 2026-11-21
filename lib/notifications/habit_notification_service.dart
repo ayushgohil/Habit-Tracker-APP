@@ -160,7 +160,7 @@ class HabitNotificationService {
   /// Shows (or refreshes) the ongoing notification for a habit's timer. While
   /// running the system draws a live clock, so the app does not need to wake up
   /// every second.
-  Future<void> showTimer(Habit habit, TimerState timer, {int? secondsUntilGoal}) => _safely(() async {
+  Future<void> showTimer(Habit habit, TimerState timer, {List<TimerAlert> alerts = const []}) => _safely(() async {
         await initialize();
         final now = DateTime.now();
         final elapsed = timer.elapsedSeconds(now);
@@ -192,41 +192,58 @@ class HabitNotificationService {
           ),
           payload: '$_timerPayloadPrefix${habit.id}',
         );
-        await _syncGoalAlert(habit, running ? secondsUntilGoal : null);
+        await _syncTimerAlerts(habit, running ? alerts : const []);
       });
 
-  static int _goalAlertId(int habitId) => 910000 + habitId;
+  /// Id of the alert for session [session] (1-based). The last session's alert
+  /// is the goal, which keeps its own id from before sessions existed.
+  static int _alertId(int habitId, int session, int sessions) =>
+      session == sessions ? 910000 + habitId : 100000000 + habitId * 32 + session;
 
-  /// Schedules a one-time "goal reached" alert, or cancels it when there is
-  /// nothing to wait for (the timer is paused, saved or already past the goal).
-  Future<void> _syncGoalAlert(Habit habit, int? secondsUntilGoal) async {
-    final id = _goalAlertId(habit.id);
-    await _plugin.cancel(id);
-    if (secondsUntilGoal == null || secondsUntilGoal <= 0) return;
-    await _plugin.zonedSchedule(
-      id,
-      '${habit.name}: goal reached',
-      'Nice work. Open Ember to save your time.',
-      tz.TZDateTime.now(tz.local).add(Duration(seconds: secondsUntilGoal)),
-      const NotificationDetails(
-        android: AndroidNotificationDetails(
-          _channelId,
-          _channelName,
-          channelDescription: 'Gentle reminders for the habits you choose.',
-          importance: Importance.high,
-          priority: Priority.high,
+  /// Replaces the scheduled alerts for a timer: one per session end still
+  /// ahead, the last being "goal reached". Nothing is scheduled when the timer
+  /// is paused, saved or already past the goal.
+  Future<void> _syncTimerAlerts(Habit habit, List<TimerAlert> alerts) async {
+    await _cancelTimerAlerts(habit.id);
+    final now = tz.TZDateTime.now(tz.local);
+    for (final alert in alerts) {
+      if (alert.secondsFromNow <= 0) continue;
+      await _plugin.zonedSchedule(
+        _alertId(habit.id, alert.session, alert.sessions),
+        alert.isGoal
+            ? '${habit.name}: goal reached'
+            : '${habit.name}: session ${alert.session} of ${alert.sessions} done',
+        alert.isGoal
+            ? 'Nice work. Open Ember to save your time.'
+            : 'Take a short break, then start the next session.',
+        now.add(Duration(seconds: alert.secondsFromNow)),
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            _channelId,
+            _channelName,
+            channelDescription: 'Gentle reminders for the habits you choose.',
+            importance: Importance.high,
+            priority: Priority.high,
+          ),
         ),
-      ),
-      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-      payload: '$_timerPayloadPrefix${habit.id}',
-    );
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+        payload: '$_timerPayloadPrefix${habit.id}',
+      );
+    }
+  }
+
+  Future<void> _cancelTimerAlerts(int habitId) async {
+    await _plugin.cancel(910000 + habitId);
+    for (var session = 1; session < maxTimerSessions; session++) {
+      await _plugin.cancel(100000000 + habitId * 32 + session);
+    }
   }
 
   Future<void> cancelTimer(int habitId) => _safely(() async {
         await initialize();
         await _plugin.cancel(_timerNotificationId(habitId));
-        await _plugin.cancel(_goalAlertId(habitId));
+        await _cancelTimerAlerts(habitId);
       });
 
   static Future<void> _dispatch(NotificationResponse response) async {
@@ -265,7 +282,7 @@ class HabitNotificationService {
         await instance.showTimer(
           habit,
           AppDatabase.stateOf(timer),
-          secondsUntilGoal: await db.secondsUntilGoal(habitId, now),
+          alerts: await db.timerAlerts(habitId, now),
         );
       }
     } catch (error) {

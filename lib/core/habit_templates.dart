@@ -16,6 +16,7 @@ class HabitTemplate {
     this.health = HealthMetric.none,
     this.unit = '',
     this.step = 1,
+    this.sessionMinutes = 0,
   });
 
   final String id;
@@ -29,6 +30,9 @@ class HabitTemplate {
   /// What the target is counted in, and how much one tap adds.
   final String unit;
   final int step;
+
+  /// For a timed habit, the length of one session (0 = a single session).
+  final int sessionMinutes;
 }
 
 const habitTemplates = <HabitTemplate>[
@@ -38,6 +42,8 @@ const habitTemplates = <HabitTemplate>[
   HabitTemplate(id: 'meditate', name: 'Meditate', iconKey: 'meditate', color: Color(0xFFC77DFF), taskType: HabitTaskType.timed, target: 10),
   HabitTemplate(id: 'workout', name: 'Workout', iconKey: 'fitness', color: Color(0xFFFF6B2C), taskType: HabitTaskType.timed, target: 30, health: HealthMetric.exercise),
   HabitTemplate(id: 'sleep', name: 'Sleep 8 hours', iconKey: 'sleep', color: Color(0xFF8E7CFF), taskType: HabitTaskType.timed, target: 480, health: HealthMetric.sleep),
+  HabitTemplate(id: 'brush', name: 'Brush teeth', iconKey: 'brush', color: Color(0xFF4DD0E1), taskType: HabitTaskType.timed, target: 6, sessionMinutes: 3),
+  HabitTemplate(id: 'focus', name: 'Focus sessions', iconKey: 'timer', color: Color(0xFFFF7043), taskType: HabitTaskType.timed, target: 100, sessionMinutes: 25),
   HabitTemplate(id: 'study', name: 'Study', iconKey: 'study', color: Color(0xFF5E9BFF), taskType: HabitTaskType.timed, target: 60),
   HabitTemplate(id: 'code', name: 'Practice coding', iconKey: 'code', color: Color(0xFF2EC4B6), taskType: HabitTaskType.timed, target: 30),
   HabitTemplate(id: 'stretch', name: 'Stretch', iconKey: 'stretch', color: Color(0xFF7BD389), taskType: HabitTaskType.timed, target: 10),
