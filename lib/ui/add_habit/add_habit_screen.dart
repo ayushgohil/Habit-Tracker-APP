@@ -543,10 +543,11 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
                   subtitle: const Text('Adds each drink you log to Health Connect as water'),
                   value: _writeHealth,
                   onChanged: (on) async {
+                    final messenger = ScaffoldMessenger.of(context);
                     setState(() => _writeHealth = on);
                     if (on && !await healthWriter.requestWaterPermission() && mounted) {
                       setState(() => _writeHealth = false);
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      messenger.showSnackBar(
                         const SnackBar(content: Text('Health Connect did not allow writing water.')),
                       );
                     }
