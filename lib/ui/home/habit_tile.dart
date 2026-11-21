@@ -14,6 +14,7 @@ class HabitTile extends StatelessWidget {
     required this.progress,
     required this.streakLabel,
     required this.streakActive,
+    this.atRisk = false,
     required this.onTap,
     required this.onLongPress,
   });
@@ -24,6 +25,9 @@ class HabitTile extends StatelessWidget {
   final double progress;
   final String streakLabel;
   final bool streakActive;
+
+  /// Skipping today would end the streak: the flame turns into a warning.
+  final bool atRisk;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
 
@@ -86,9 +90,10 @@ class HabitTile extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                Icons.local_fire_department_rounded,
+                atRisk ? Icons.warning_amber_rounded : Icons.local_fire_department_rounded,
+                key: atRisk ? const Key('streak-at-risk') : null,
                 size: 14,
-                color: streakActive ? EmberColors.glow : EmberColors.textMuted,
+                color: atRisk ? const Color(0xFFFF5A5F) : (streakActive ? EmberColors.glow : EmberColors.textMuted),
               ),
               const SizedBox(width: 2),
               Text(

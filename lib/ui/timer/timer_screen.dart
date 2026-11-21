@@ -79,6 +79,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
     final actions = ref.read(habitActionsProvider);
     final reached = target > 0 && total >= target;
     final over = reached ? total - target : 0;
+    final limit = habit.limitMode;
     final plan = SessionPlan(goalSeconds: target, sessionSeconds: habit.sessionSeconds);
     final session = plan.sessionAt(total);
 
@@ -104,7 +105,7 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
                         strokeWidth: 12,
                         strokeCap: StrokeCap.round,
                         backgroundColor: EmberColors.track,
-                        color: reached ? EmberColors.glow : color,
+                        color: limit ? (reached ? const Color(0xFFFF5A5F) : color) : (reached ? EmberColors.glow : color),
                       ),
                     ),
                     Column(
@@ -116,14 +117,16 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
                           style: Theme.of(context).textTheme.displayMedium,
                         ),
                         const SizedBox(height: 4),
-                        if (plan.isSplit && !reached)
+                        if (plan.isSplit && !reached && !limit)
                           Text(
                             'Session $session of ${plan.count}',
                             key: const Key('timer-session'),
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
                         Text(
-                          reached
+                          limit
+                              ? (reached ? 'Over the limit by ${formatClock(over)}' : '${formatClock(target - total)} left of ${formatClock(target)}')
+                              : reached
                               ? (over > 0 ? 'Goal reached · +${formatClock(over)} over' : 'Goal reached')
                               : (plan.isSplit
                                   ? '${formatClock(plan.secondsIntoSession(total))} of ${formatClock(plan.lengthOf(session))}'

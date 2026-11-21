@@ -42,6 +42,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
   int _intervalDays = 2;
   int _periodTarget = 1;
   bool _twoDayRule = false;
+  bool _limit = false;
   bool _reminderEnabled = false;
   TimeOfDay _reminderTime = const TimeOfDay(hour: 20, minute: 0);
   bool _partialNudgeEnabled = false;
@@ -68,6 +69,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
     _color = Color(h.colorValue);
     _schedule = ScheduleType.values[h.scheduleType];
     _taskType = HabitTaskType.values[h.taskType];
+    _limit = h.limitMode;
     _health = HealthMetric.fromIndex(h.healthMetric);
     _weekdayMask = h.weekdayMask;
     _timesPerWeek = h.timesPerWeek;
@@ -102,6 +104,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
       _color = t.color;
       _taskType = t.taskType;
       _twoDayRule = false;
+      _limit = false;
       _health = HealthMetric.none;
       _unit.text = t.unit;
       _step.text = '${t.step}';
@@ -131,9 +134,12 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
       _health == HealthMetric.none && _taskType == HabitTaskType.normal;
   String get _unitValue => _countsInUnits ? _unit.text.trim() : '';
   int get _stepValue => _countsInUnits ? _positive(_step, 1, _targetMax) : 1;
+  /// A limit ("stay under") only makes sense for a plain timed habit.
+  bool get _limitValue => _taskType == HabitTaskType.timed && _health == HealthMetric.none && _limit;
+
   /// Seconds per session for a timed habit, or 0 when it is one session.
   int get _sessionValue {
-    if (_taskType != HabitTaskType.timed || _health != HealthMetric.none) return 0;
+    if (_taskType != HabitTaskType.timed || _health != HealthMetric.none || _limit) return 0;
     final minutes = int.tryParse(_session.text.trim()) ?? 0;
     return normalizeSessionSeconds(_positive(_duration, 30, 1440) * 60, minutes * 60);
   }
@@ -310,6 +316,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
         stepSize: _stepValue,
         extraReminders: _extraValue,
         sessionSeconds: _sessionValue,
+        limitMode: _limitValue,
       );
     } else {
       savedHabitId = widget.habit!.id;
@@ -336,6 +343,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
         stepSize: _stepValue,
         extraReminders: _extraValue,
         sessionSeconds: _sessionValue,
+        limitMode: _limitValue,
       );
     }
     final db = ref.read(databaseProvider);
@@ -438,14 +446,23 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
             ),
           ],
           if (_taskType == HabitTaskType.timed) ...[
-            _Label(_health == HealthMetric.none ? 'Daily time target' : _health.goalLabel),
+            _Label(_health == HealthMetric.none ? (_limit ? 'Daily time limit' : 'Daily time target') : _health.goalLabel),
             TextField(
               controller: _duration,
               keyboardType: TextInputType.number,
               onChanged: (_) => setState(() {}),
               decoration: const InputDecoration(suffixText: 'minutes'),
             ),
-            if (_health == HealthMetric.none) ...[
+            if (_health == HealthMetric.none)
+              SwitchListTile(
+                key: const Key('limit-switch'),
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Keep under this time'),
+                subtitle: const Text('A limit, like 30 minutes of social media. The day stays done until the timer passes it.'),
+                value: _limit,
+                onChanged: (v) => setState(() => _limit = v),
+              ),
+            if (_health == HealthMetric.none && !_limit) ...[
               const _Label('Split into sessions (optional)'),
               TextField(
                 key: const Key('session-field'),

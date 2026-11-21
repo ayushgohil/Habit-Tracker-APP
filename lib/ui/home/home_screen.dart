@@ -202,6 +202,7 @@ class HomeScreen extends ConsumerWidget {
                       progress: view.progress,
                       streakLabel: view.streak.shortLabel,
                       streakActive: view.streak.length > 0,
+                      atRisk: view.atRisk && !view.isDone,
                       onTap: () => _handleHabitTap(context, ref, view, day),
                       onLongPress: () {
                         HapticFeedback.mediumImpact();

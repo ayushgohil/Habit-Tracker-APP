@@ -75,6 +75,10 @@ class Habits extends Table {
   /// Length of one session of a timed habit (0 = one session). A 100 minute
   /// goal with 25 minute sessions is four focus rounds.
   IntColumn get sessionSeconds => integer().withDefault(const Constant(0))();
+
+  /// A timed habit that is a limit ("stay under 30 minutes"): the day is done
+  /// as long as the time used stays within the goal.
+  BoolColumn get limitMode => boolean().withDefault(const Constant(false))();
 }
 
 class Completions extends Table {
@@ -144,7 +148,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -183,6 +187,9 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 10) {
             await m.addColumn(habits, habits.sessionSeconds);
+          }
+          if (from < 11) {
+            await m.addColumn(habits, habits.limitMode);
           }
           if (from < 8) {
             await m.addColumn(dayNotes, dayNotes.pinned);
@@ -443,19 +450,22 @@ class AppDatabase extends _$AppDatabase {
     return transaction(() async {
       final existing = await getTimer(habitId);
       if (existing == null) return 0;
-      final seconds = stateOf(existing).elapsedSeconds(now);
-      if (seconds > 0) {
+      var saved = 0;
+      // A session that ran past the day change is shared between the days.
+      for (final entry in timerShares(existing.day, stateOf(existing), now).entries) {
+        if (entry.value <= 0) continue;
         final row = await (select(completions)
-              ..where((c) => c.habitId.equals(habitId) & c.day.equals(existing.day)))
+              ..where((c) => c.habitId.equals(habitId) & c.day.equals(entry.key)))
             .getSingleOrNull();
         await setCompletion(
           habitId: habitId,
-          day: existing.day,
-          amount: (row?.amount ?? 0) + seconds,
+          day: entry.key,
+          amount: (row?.amount ?? 0) + entry.value,
         );
+        saved += entry.value;
       }
       await discardTimer(habitId);
-      return seconds;
+      return saved;
     });
   }
 

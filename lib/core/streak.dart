@@ -316,3 +316,53 @@ Streak computeStreak({
   );
   return stats.currentStreak;
 }
+
+/// Whether not doing the habit today would end a streak that is running.
+///
+/// True only when a streak is alive, today's period is still short of its
+/// target, and there are too few scheduled days left after today to finish it.
+/// So a daily habit with a streak is at risk until it is done, while a
+/// 3-times-a-week habit is only at risk once it can no longer afford a day off.
+bool streakAtRisk({
+  required Schedule schedule,
+  required Set<String> doneDays,
+  required DateTime createdAt,
+  required DateTime today,
+  HabitTaskType taskType = HabitTaskType.normal,
+  bool twoDayRule = false,
+}) {
+  final end = startOfDay(today);
+  final periods = _periods(schedule, startOfDay(createdAt), end);
+  if (periods.isEmpty) return false;
+  final period = periods.last;
+  // Not scheduled today (for example a weekday habit on its day off).
+  if (period.end.isBefore(end)) return false;
+  if (_periodComplete(schedule, period, doneDays)) return false;
+
+  final flexible = schedule.type == ScheduleType.everyNDays;
+  var done = 0;
+  var daysAfterToday = 0;
+  for (var day = period.start; !day.isAfter(period.end); day = addDays(day, 1)) {
+    if (!(flexible || schedule.isDue(day))) continue;
+    if (doneDays.contains(dayKey(day))) done++;
+    if (day.isAfter(end)) daysAfterToday++;
+  }
+  if (schedule.target - done <= daysAfterToday) return false;
+
+  // A negative habit with the 2-day rule forgives one missed period, so
+  // today only matters once the period before it was missed too.
+  if (taskType == HabitTaskType.negative && twoDayRule) {
+    if (periods.length < 2) return false;
+    if (_periodComplete(schedule, periods[periods.length - 2], doneDays)) return false;
+  }
+
+  final stats = calculateHabitStats(
+    schedule: schedule,
+    doneDays: doneDays,
+    createdAt: createdAt,
+    today: today,
+    taskType: taskType,
+    twoDayRule: twoDayRule,
+  );
+  return stats.currentStreak.length > 0;
+}

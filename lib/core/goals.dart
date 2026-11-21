@@ -58,6 +58,21 @@ class GoalTimeline {
           if (e.value >= targetOn(parseDayKey(e.key))) e.key,
       };
 
+  /// For a limit habit ("stay under 30 minutes"): every day from [from]
+  /// through [through] whose logged amount stayed within that day's own limit.
+  /// A day with nothing logged is a success, so the days are counted even
+  /// though they have no row.
+  Set<String> underLimitDays(Map<String, int> amounts, DateTime from, DateTime through) {
+    final days = <String>{};
+    var day = startOfDay(from);
+    final last = startOfDay(through);
+    for (var i = 0; !day.isAfter(last) && i < 4000; i++, day = addDays(day, 1)) {
+      final key = dayKey(day);
+      if ((amounts[key] ?? 0) <= targetOn(day)) days.add(key);
+    }
+    return days;
+  }
+
   static double _share(int amount, int target) =>
       target <= 0 ? 0.0 : (amount / target).clamp(0.0, 1.0).toDouble();
 }

@@ -210,10 +210,14 @@ class HabitNotificationService {
       if (alert.secondsFromNow <= 0) continue;
       await _plugin.zonedSchedule(
         _alertId(habit.id, alert.session, alert.sessions),
-        alert.isGoal
+        alert.isGoal && habit.limitMode
+            ? '${habit.name}: limit reached'
+            : alert.isGoal
             ? '${habit.name}: goal reached'
             : '${habit.name}: session ${alert.session} of ${alert.sessions} done',
-        alert.isGoal
+        alert.isGoal && habit.limitMode
+            ? 'That is all the time you set for today. Open Ember to stop the timer.'
+            : alert.isGoal
             ? 'Nice work. Open Ember to save your time.'
             : 'Take a short break, then start the next session.',
         now.add(Duration(seconds: alert.secondsFromNow)),
