@@ -44,7 +44,7 @@ void main() {
     });
 
     test('a weekday habit is not at risk on its day off', () {
-      final weekdays = Schedule(type: ScheduleType.weekdays, weekdayMask: 0x1F); // Mon-Fri
+      const weekdays = Schedule(type: ScheduleType.weekdays, weekdayMask: 0x1F); // Mon-Fri
       final done = {'2026-11-19', '2026-11-20'}; // Thu, Fri
       expect(risk(weekdays, done, DateTime(2026, 11, 21)), isFalse); // Saturday
       expect(risk(weekdays, done, DateTime(2026, 11, 23)), isTrue); // Monday

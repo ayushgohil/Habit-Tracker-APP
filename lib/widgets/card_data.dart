@@ -3,7 +3,6 @@
 library;
 
 import '../core/day.dart';
-import '../core/goals.dart';
 import '../core/streak.dart';
 import '../core/timer.dart';
 import '../data/providers.dart';

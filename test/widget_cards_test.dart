@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
-import 'package:ember/core/day.dart';
 import 'package:ember/core/streak.dart';
 import 'package:ember/data/database.dart';
 import 'package:ember/data/providers.dart';
