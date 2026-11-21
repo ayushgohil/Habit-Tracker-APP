@@ -148,7 +148,7 @@ class _BarPainter extends CustomPainter {
     if (values.isEmpty) return;
     const labelHeight = 20.0;
     const topPad = 22.0; // room for the figures above the tallest bar
-    final chartTop = topPad;
+    const chartTop = topPad;
     final chartHeight = size.height - labelHeight - topPad;
     final plotWidth = size.width - gutter;
     final slot = plotWidth / values.length;
