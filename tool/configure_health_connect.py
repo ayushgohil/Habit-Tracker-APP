@@ -36,6 +36,7 @@ for permission in [
     "android.permission.health.READ_STEPS",
     "android.permission.health.READ_EXERCISE",
     "android.permission.health.READ_SLEEP",
+    "android.permission.health.WRITE_HYDRATION",
 ]:
     if permission not in existing:
         ET.SubElement(root, "uses-permission", {ANDROID + "name": permission})

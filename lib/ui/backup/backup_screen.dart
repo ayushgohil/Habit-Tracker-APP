@@ -13,6 +13,7 @@ import '../../data/csv_import.dart';
 import '../../data/providers.dart';
 import '../../notifications/habit_notification_service.dart';
 import '../../theme/ember_theme.dart';
+import '../privacy/privacy_screen.dart';
 
 class BackupScreen extends ConsumerStatefulWidget {
   const BackupScreen({super.key});
@@ -147,6 +148,13 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
             title: 'Import history from CSV',
             subtitle: 'Adds logged days for habits you already have. Nothing is lowered or removed',
             onTap: _busy ? null : _importCsv,
+          ),
+          _ActionCard(
+            key: const Key('privacy-open'),
+            icon: Icons.lock_outline_rounded,
+            title: 'Privacy & automation',
+            subtitle: 'App lock, Tasker actions and the quick settings tile',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const PrivacyScreen())),
           ),
           const SizedBox(height: 12),
           if (_busy) const LinearProgressIndicator(),

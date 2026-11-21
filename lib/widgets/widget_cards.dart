@@ -97,10 +97,10 @@ class WidgetCards {
 
     try {
       await HomeWidget.saveWidgetData<String>('ember_img_dir', dir.path);
-      // One line per habit: id, name, colour, whether a tap on the widget logs it.
+      // One line per habit: id, name, colour, whether a tap logs it, whether it is done today.
       await HomeWidget.saveWidgetData<String>(
         'ember_habits',
-        [for (final c in cards) '${c.id}\t${c.name.replaceAll(RegExp(r'[\t\n]'), ' ')}\t${c.colorValue}\t${c.tappable ? 1 : 0}']
+        [for (final c in cards) '${c.id}\t${c.name.replaceAll(RegExp(r'[\t\n]'), ' ')}\t${c.colorValue}\t${c.tappable ? 1 : 0}\t${c.done ? 1 : 0}']
             .join('\n'),
       );
       for (final name in providers.values) {

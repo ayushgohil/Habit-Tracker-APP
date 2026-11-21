@@ -7,6 +7,7 @@ import '../../core/streak.dart';
 import '../../data/providers.dart';
 import '../../theme/ember_theme.dart';
 import '../add_habit/add_habit_screen.dart';
+import '../common/open_link.dart';
 import '../common/text_dialogs.dart';
 import '../stats/habit_stats_screen.dart';
 import '../timer/timer_screen.dart';
@@ -61,6 +62,22 @@ Future<void> showHabitDetails(BuildContext context, WidgetRef ref, HabitView vie
               ],
             ),
             const SizedBox(height: 12),
+            if (habit.linkUrl.isNotEmpty)
+              ListTile(
+                key: const Key('open-link'),
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.open_in_new_rounded),
+                title: const Text('Open link'),
+                subtitle: Text(habit.linkUrl, maxLines: 1, overflow: TextOverflow.ellipsis),
+                onTap: () async {
+                  final opened = await linkOpener.open(habit.linkUrl);
+                  if (!opened && sheetContext.mounted) {
+                    ScaffoldMessenger.of(sheetContext).showSnackBar(
+                      const SnackBar(content: Text('Could not open that link.')),
+                    );
+                  }
+                },
+              ),
             if (habit.taskType == HabitTaskType.timed.index)
               ListTile(
                 contentPadding: EdgeInsets.zero,

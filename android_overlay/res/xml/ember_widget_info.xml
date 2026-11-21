@@ -7,4 +7,6 @@
     android:updatePeriodMillis="1800000"
     android:initialLayout="@layout/ember_widget"
     android:resizeMode="horizontal|vertical"
+    android:previewImage="@drawable/ember_preview_list"
+    android:description="@string/ember_widget_list"
     android:widgetCategory="home_screen" />

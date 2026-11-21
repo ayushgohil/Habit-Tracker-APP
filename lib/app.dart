@@ -6,6 +6,7 @@ import 'data/providers.dart';
 import 'core/streak.dart';
 import 'health/health_sync.dart';
 import 'notifications/habit_notification_service.dart';
+import 'security/app_lock.dart';
 import 'theme/ember_theme.dart';
 import 'theme/theme_controller.dart';
 import 'ui/home/home_screen.dart';
@@ -183,6 +184,7 @@ class _EmberAppState extends ConsumerState<EmberApp>
       title: 'Ember',
       debugShowCheckedModeBanner: false,
       theme: emberTheme(palette),
+      builder: (context, child) => LockGate(child: child ?? const SizedBox.shrink()),
       home: const HomeScreen(),
     );
   }

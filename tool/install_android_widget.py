@@ -21,10 +21,14 @@ package = re.search(r"^package\s+([\w.]+)", activity.read_text(), re.M).group(1)
 for kotlin in (overlay / "kotlin").glob("*.kt"):
     (activity.parent / kotlin.name).write_text(kotlin.read_text().replace("__PACKAGE__", package))
 
-for sub in ("layout", "xml", "drawable"):
+for sub in ("layout", "xml", "drawable", "drawable-nodpi", "values"):
     (main / "res" / sub).mkdir(parents=True, exist_ok=True)
     for file in (overlay / "res" / sub).iterdir():
-        (main / "res" / sub / file.name).write_text(file.read_text().replace("__PACKAGE__", package))
+        target = main / "res" / sub / file.name
+        if file.suffix == ".png":
+            target.write_bytes(file.read_bytes())
+        else:
+            target.write_text(file.read_text().replace("__PACKAGE__", package))
 
 manifest = main / "AndroidManifest.xml"
 tree = ET.parse(manifest)
@@ -53,6 +57,7 @@ CARDS = {
     ".EmberGridWidget": "Ember: habits",
 }
 for card, label in CARDS.items():
+    kind = card[len(".Ember"):-len("Widget")].lower()
     if any(r.get(ANDROID + "name") == card for r in application.findall("receiver")):
         continue
     receiver = ET.SubElement(application, "receiver", {
@@ -64,8 +69,30 @@ for card, label in CARDS.items():
     ET.SubElement(intent_filter, "action", {ANDROID + "name": "android.appwidget.action.APPWIDGET_UPDATE"})
     ET.SubElement(receiver, "meta-data", {
         ANDROID + "name": "android.appwidget.provider",
-        ANDROID + "resource": "@xml/ember_card_info",
+        ANDROID + "resource": f"@xml/ember_{kind}_info",
     })
+# Automation: broadcasts from Tasker and friends, and the Quick Settings tile.
+if not any(r.get(ANDROID + "name") == ".EmberActionReceiver" for r in application.findall("receiver")):
+    receiver = ET.SubElement(application, "receiver", {
+        ANDROID + "name": ".EmberActionReceiver",
+        ANDROID + "exported": "true",
+    })
+    intent_filter = ET.SubElement(receiver, "intent-filter")
+    for action in ("LOG", "COMPLETE", "START", "STOP"):
+        ET.SubElement(intent_filter, "action", {ANDROID + "name": f"{package}.action.{action}"})
+if not any(x.get(ANDROID + "name") == ".EmberTileService" for x in application.findall("service")):
+    service = ET.SubElement(application, "service", {
+        ANDROID + "name": ".EmberTileService",
+        ANDROID + "exported": "true",
+        ANDROID + "label": "Ember",
+        ANDROID + "icon": "@drawable/ember_tile_icon",
+        ANDROID + "permission": "android.permission.BIND_QUICK_SETTINGS_TILE",
+    })
+    intent_filter = ET.SubElement(service, "intent-filter")
+    ET.SubElement(intent_filter, "action", {ANDROID + "name": "android.service.quicksettings.action.QS_TILE"})
+# The app lock asks the phone for a fingerprint, face or screen lock.
+if "android.permission.USE_BIOMETRIC" not in {p.get(ANDROID + "name") for p in tree.getroot().findall("uses-permission")}:
+    ET.SubElement(tree.getroot(), "uses-permission", {ANDROID + "name": "android.permission.USE_BIOMETRIC"})
 config = ".EmberWidgetConfigActivity"
 if not any(a.get(ANDROID + "name") == config for a in application.findall("activity")):
     activity_el = ET.SubElement(application, "activity", {
