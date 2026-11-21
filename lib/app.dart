@@ -34,12 +34,17 @@ class _EmberAppState extends ConsumerState<EmberApp>
     LauncherShortcuts.instance.initialize(_onShortcut);
     _syncHealth();
     HomeScreenWidget.instance.registerTaps();
-    ref.listenManual<String>(themeIdProvider, (_, __) => _repaintEverything());
+    ref.listenManual<EmberPalette>(activePaletteProvider, (_, __) => _repaintEverything());
     ref.listenManual<AsyncValue<List<HabitView>>>(
       liveTodayViewsProvider,
       (_, next) => _onTodayChanged(next),
       fireImmediately: true,
     );
+  }
+
+  @override
+  void didChangePlatformBrightness() {
+    ref.read(systemBrightnessProvider.notifier).state = WidgetsBinding.instance.platformDispatcher.platformBrightness;
   }
 
   /// Colours are read as widgets build, so after the look changes every widget
@@ -170,7 +175,7 @@ class _EmberAppState extends ConsumerState<EmberApp>
 
   @override
   Widget build(BuildContext context) {
-    final palette = paletteById(ref.watch(themeIdProvider));
+    final palette = ref.watch(activePaletteProvider);
     EmberColors.use(palette);
     return MaterialApp(
       navigatorKey: _navigatorKey,

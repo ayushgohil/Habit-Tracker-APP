@@ -15,7 +15,7 @@ void main() {
   test('every theme and icon key is unique and usable', () {
     expect(emberPalettes.map((p) => p.id).toSet().length, emberPalettes.length);
     expect(habitIconEntries.map((e) => e.key).toSet().length, habitIconEntries.length);
-    expect(habitIconEntries.length, greaterThan(100));
+    expect(habitIconEntries.length, greaterThan(280));
     expect(paletteById('nope').id, 'ember');
     expect(paletteById('ocean').name, 'Ocean');
     for (final p in emberPalettes) {
