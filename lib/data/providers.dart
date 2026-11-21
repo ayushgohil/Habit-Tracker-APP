@@ -265,9 +265,10 @@ class HabitActions {
     String unitLabel = '',
     int stepSize = 1,
     String extraReminders = '',
+    int sessionSeconds = 0,
   }) => _db.insertHabit(HabitsCompanion.insert(
     name: name, iconKey: iconKey, colorValue: colorValue, healthMetric: Value(healthMetric),
-    unitLabel: Value(unitLabel), stepSize: Value(stepSize), extraReminders: Value(extraReminders),
+    unitLabel: Value(unitLabel), stepSize: Value(stepSize), extraReminders: Value(extraReminders), sessionSeconds: Value(sessionSeconds),
     createdAt: startDate == null ? const Value.absent() : Value(startDate),
     scheduleType: Value(schedule.type.index), weekdayMask: Value(schedule.weekdayMask),
     timesPerWeek: Value(schedule.timesPerWeek), dailyTarget: Value(dailyTarget),
@@ -289,11 +290,12 @@ class HabitActions {
     String unitLabel = '',
     int stepSize = 1,
     String extraReminders = '',
+    int sessionSeconds = 0,
   }) async {
     final before = await (_db.select(_db.habits)..where((h) => h.id.equals(id))).getSingleOrNull();
     await _db.updateHabit(id, HabitsCompanion(
     name: Value(name), iconKey: Value(iconKey), colorValue: Value(colorValue), healthMetric: Value(healthMetric),
-    unitLabel: Value(unitLabel), stepSize: Value(stepSize), extraReminders: Value(extraReminders),
+    unitLabel: Value(unitLabel), stepSize: Value(stepSize), extraReminders: Value(extraReminders), sessionSeconds: Value(sessionSeconds),
     createdAt: startDate == null ? const Value.absent() : Value(startDate),
     scheduleType: Value(schedule.type.index), weekdayMask: Value(schedule.weekdayMask),
     timesPerWeek: Value(schedule.timesPerWeek), intervalDays: Value(schedule.intervalDays),
@@ -338,7 +340,7 @@ class HabitActions {
       await HabitNotificationService.instance.showTimer(
         habit,
         AppDatabase.stateOf(timer),
-        secondsUntilGoal: await _db.secondsUntilGoal(habitId, DateTime.now()),
+        alerts: await _db.timerAlerts(habitId, DateTime.now()),
       );
     }
   }

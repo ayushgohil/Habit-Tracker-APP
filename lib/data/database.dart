@@ -71,6 +71,10 @@ class Habits extends Table {
   /// Extra reminder times beyond the main one, as "HH:mm,HH:mm" (for example
   /// each dose of a medicine).
   TextColumn get extraReminders => text().withDefault(const Constant(''))();
+
+  /// Length of one session of a timed habit (0 = one session). A 100 minute
+  /// goal with 25 minute sessions is four focus rounds.
+  IntColumn get sessionSeconds => integer().withDefault(const Constant(0))();
 }
 
 class Completions extends Table {
@@ -140,7 +144,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -176,6 +180,9 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(habits, habits.unitLabel);
             await m.addColumn(habits, habits.stepSize);
             await m.addColumn(habits, habits.extraReminders);
+          }
+          if (from < 10) {
+            await m.addColumn(habits, habits.sessionSeconds);
           }
           if (from < 8) {
             await m.addColumn(dayNotes, dayNotes.pinned);
@@ -410,6 +417,21 @@ class AppDatabase extends _$AppDatabase {
         .getSingleOrNull();
     final remaining = habit.targetDurationSeconds - (logged?.amount ?? 0) - stateOf(timer).elapsedSeconds(now);
     return remaining > 0 ? remaining : null;
+  }
+
+  /// Every session end and the goal still ahead of a running timer, as
+  /// seconds from [now]. Empty if no timer is running or the goal is reached.
+  Future<List<TimerAlert>> timerAlerts(int habitId, DateTime now) async {
+    final timer = await getTimer(habitId);
+    if (timer == null || timer.runningSince == null) return const [];
+    final habit = await (select(habits)..where((h) => h.id.equals(habitId))).getSingleOrNull();
+    if (habit == null || habit.taskType != 2) return const [];
+    final logged = await (select(completions)
+          ..where((c) => c.habitId.equals(habitId) & c.day.equals(timer.day)))
+        .getSingleOrNull();
+    final total = (logged?.amount ?? 0) + stateOf(timer).elapsedSeconds(now);
+    return SessionPlan(goalSeconds: habit.targetDurationSeconds, sessionSeconds: habit.sessionSeconds)
+        .alertsFrom(total);
   }
 
   Future<void> discardTimer(int habitId) =>

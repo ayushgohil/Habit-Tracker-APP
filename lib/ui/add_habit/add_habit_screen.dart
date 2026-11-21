@@ -7,6 +7,7 @@ import '../../core/habit_icons.dart';
 import '../../core/health.dart';
 import '../../core/reminder_plan.dart';
 import '../../core/streak.dart';
+import '../../core/timer.dart';
 import '../../data/database.dart';
 import '../../data/providers.dart';
 import '../../health/health_sync.dart';
@@ -27,6 +28,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
   final _name = TextEditingController();
   final _target = TextEditingController(text: '1');
   final _duration = TextEditingController(text: '30');
+  final _session = TextEditingController();
   final _unit = TextEditingController();
   final _step = TextEditingController(text: '1');
   List<(int, int)> _extraTimes = [];
@@ -61,6 +63,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
     _step.text = h.stepSize.toString();
     _extraTimes = parseExtraReminders(h.extraReminders);
     _duration.text = (h.targetDurationSeconds ~/ 60).toString();
+    if (h.sessionSeconds > 0) _session.text = (h.sessionSeconds ~/ 60).toString();
     _icon = h.iconKey;
     _color = Color(h.colorValue);
     _schedule = ScheduleType.values[h.scheduleType];
@@ -82,6 +85,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
     _name.dispose();
     _target.dispose();
     _duration.dispose();
+    _session.dispose();
     _unit.dispose();
     _step.dispose();
     super.dispose();
@@ -101,6 +105,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
       _health = HealthMetric.none;
       _unit.text = t.unit;
       _step.text = '${t.step}';
+      _session.text = t.sessionMinutes > 0 ? '${t.sessionMinutes}' : '';
       if (t.taskType == HabitTaskType.timed) {
         _duration.text = '${t.target}';
       } else {
@@ -126,7 +131,23 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
       _health == HealthMetric.none && _taskType == HabitTaskType.normal;
   String get _unitValue => _countsInUnits ? _unit.text.trim() : '';
   int get _stepValue => _countsInUnits ? _positive(_step, 1, _targetMax) : 1;
+  /// Seconds per session for a timed habit, or 0 when it is one session.
+  int get _sessionValue {
+    if (_taskType != HabitTaskType.timed || _health != HealthMetric.none) return 0;
+    final minutes = int.tryParse(_session.text.trim()) ?? 0;
+    return normalizeSessionSeconds(_positive(_duration, 30, 1440) * 60, minutes * 60);
+  }
+
   String get _extraValue => _reminderEnabled ? formatExtraReminders(_extraTimes) : '';
+
+  String _sessionSummary() {
+    final plan = SessionPlan(
+      goalSeconds: _positive(_duration, 30, 1440) * 60,
+      sessionSeconds: _sessionValue,
+    );
+    final minutes = plan.sessionSeconds ~/ 60;
+    return '${plan.count} sessions of $minutes min. You get an alert as each one ends.';
+  }
 
   Future<void> _addExtraTime() async {
     final picked = await showTimePicker(context: context, initialTime: const TimeOfDay(hour: 12, minute: 0));
@@ -288,6 +309,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
         unitLabel: _unitValue,
         stepSize: _stepValue,
         extraReminders: _extraValue,
+        sessionSeconds: _sessionValue,
       );
     } else {
       savedHabitId = widget.habit!.id;
@@ -313,6 +335,7 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
         unitLabel: _unitValue,
         stepSize: _stepValue,
         extraReminders: _extraValue,
+        sessionSeconds: _sessionValue,
       );
     }
     final db = ref.read(databaseProvider);
@@ -419,8 +442,31 @@ class _AddHabitScreenState extends ConsumerState<AddHabitScreen> {
             TextField(
               controller: _duration,
               keyboardType: TextInputType.number,
+              onChanged: (_) => setState(() {}),
               decoration: const InputDecoration(suffixText: 'minutes'),
             ),
+            if (_health == HealthMetric.none) ...[
+              const _Label('Split into sessions (optional)'),
+              TextField(
+                key: const Key('session-field'),
+                controller: _session,
+                keyboardType: TextInputType.number,
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(
+                  suffixText: 'minutes each',
+                  hintText: 'e.g. 25 for focus rounds',
+                ),
+              ),
+              if (_sessionValue > 0)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    _sessionSummary(),
+                    key: const Key('session-summary'),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: EmberColors.textMuted),
+                  ),
+                ),
+            ],
           ] else ...[
             _Label(_health == HealthMetric.none ? 'Daily completion target' : _health.goalLabel),
             TextField(
