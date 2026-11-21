@@ -274,6 +274,10 @@ void main() {
     testWidgets('the automation actions are listed with the package name', (tester) async {
       final db = await start(tester);
       await openPrivacy(tester);
+      // The automation list is tucked away until it is opened.
+      expect(find.byKey(const Key('action-LOG')), findsNothing);
+      await tester.tap(find.byKey(const Key('automation-section')));
+      await settle(tester);
       for (final name in ['LOG', 'COMPLETE', 'START', 'STOP']) {
         expect(find.byKey(Key('action-$name')), findsOneWidget, reason: name);
       }

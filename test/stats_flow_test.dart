@@ -90,9 +90,16 @@ void main() {
     await tester.ensureVisible(find.text('Year'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('chart-week')), findsOneWidget);
+    expect(find.text('0 days done out of 7 · average 0%'), findsOneWidget);
+    // Touching and dragging over the bars must work without errors.
+    await tester.tap(find.byKey(const Key('chart-week')));
+    await tester.pump();
+    await tester.drag(find.byKey(const Key('chart-week')), const Offset(120, 0));
+    await tester.pump();
     await tester.tap(find.text('Year'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('chart-year')), findsOneWidget);
+    expect(find.text('0 days done in the last 12 months'), findsOneWidget);
     await tester.tap(find.text('Month'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('chart-month')), findsOneWidget);
