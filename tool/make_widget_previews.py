@@ -1,8 +1,8 @@
 """Draws the previews shown in Android's widget picker.
 
 Run from the repo root: python3 tool/make_widget_previews.py
-Writes android_overlay/res/drawable-nodpi/ember_preview_*.png and the
-per-widget provider files in android_overlay/res/xml.
+Writes android/app/src/main/res/drawable-nodpi/ember_preview_*.png and the
+per-widget provider files in android/app/src/main/res/xml.
 """
 import math
 from pathlib import Path
@@ -18,8 +18,8 @@ def mix(alpha):
 
 
 FAINT = mix(0.27)
-OUT = Path("android_overlay/res/drawable-nodpi")
-XML = Path("android_overlay/res/xml")
+OUT = Path("android/app/src/main/res/drawable-nodpi")
+XML = Path("android/app/src/main/res/xml")
 OUT.mkdir(parents=True, exist_ok=True)
 
 
@@ -142,7 +142,7 @@ TEMPLATE = """<?xml version="1.0" encoding="utf-8"?>
     android:description="@string/ember_widget_{kind}"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen"
-    android:configure="__PACKAGE__.EmberWidgetConfigActivity"
+    android:configure="com.nextlyr.ember.EmberWidgetConfigActivity"
     android:widgetFeatures="reconfigurable" />
 """
 for kind in ("streak", "ring", "week", "trend", "month", "grid"):

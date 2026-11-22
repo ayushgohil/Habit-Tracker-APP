@@ -1,0 +1,68 @@
+name: Bug report
+description: Something in Ember does not work as it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. Please search existing issues first, then fill this in as well as you can.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: Describe the problem. A screenshot or screen recording helps a lot.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open a habit
+        2. Tap ...
+        3. See the problem
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect instead?
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Ember version
+      description: The release you installed, for example 0.2.0.
+    validations:
+      required: true
+  - type: input
+    id: phone
+    attributes:
+      label: Phone and Android version
+      placeholder: Pixel 8, Android 15
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where does it happen?
+      options:
+        - Home screen or habit tiles
+        - Add or edit habit
+        - Timer
+        - Stats and charts
+        - Widgets or Quick Settings tile
+        - Reminders and notifications
+        - Health Connect
+        - Backup, restore or import
+        - Themes and look
+        - App lock
+        - Something else
+    validations:
+      required: false
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else?
+      description: Please do not paste personal data from your habits.
