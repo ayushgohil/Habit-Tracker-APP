@@ -44,7 +44,7 @@ jobs:
         run: flutter test
 
   native:
-    name: Compile debug APK
+    name: Compile APKs
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -107,3 +107,19 @@ jobs:
       - name: Build debug APK
         if: steps.changed.outputs.build == 'true'
         run: flutter build apk --debug --target-platform android-arm64
+
+      # The release workflow only runs on a tag, so check here that a signed
+      # release build works, using a throwaway key.
+      - name: Build release APK with a throwaway key
+        if: steps.changed.outputs.build == 'true'
+        run: |
+          keytool -genkeypair -storetype PKCS12 -keystore "$RUNNER_TEMP/ci.jks" -alias ci \
+            -keyalg RSA -keysize 2048 -validity 2 -storepass ci-password -keypass ci-password \
+            -dname "CN=CI"
+          export EMBER_KEYSTORE_PATH="$RUNNER_TEMP/ci.jks"
+          export EMBER_KEYSTORE_PASSWORD=ci-password
+          export EMBER_KEY_ALIAS=ci
+          export EMBER_KEY_PASSWORD=ci-password
+          flutter build apk --release --target-platform android-arm64
+          APKSIGNER="$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)"
+          "$APKSIGNER" verify --print-certs build/app/outputs/flutter-apk/app-release.apk | grep -i "CN=CI"
