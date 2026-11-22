@@ -1,6 +1,8 @@
 name: ember
 description: Ember — a private, local-first habit and streak tracker for Android.
 publish_to: "none"
+repository: https://github.com/ayushgohil/Habit-Tracker-APP
+issue_tracker: https://github.com/ayushgohil/Habit-Tracker-APP/issues
 version: 0.1.0+1
 
 environment:

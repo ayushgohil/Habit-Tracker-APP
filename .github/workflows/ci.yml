@@ -1,0 +1,125 @@
+name: CI
+
+# Runs on pull requests only. It checks the code (analyze + tests) and, when a
+# pull request touches the Android side, also compiles a debug APK. No APK is
+# published from here: releases are built by release.yml when a version tag is
+# pushed.
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Analyze and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Generate Drift database code
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Analyze Dart code
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test
+
+  native:
+    name: Compile APKs
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Did the Android side change?
+        id: changed
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" | grep -qE '^(android/|pubspec\.(yaml|lock)$)'; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=false" >> "$GITHUB_OUTPUT"
+            echo "No Android or dependency changes, skipping the APK build."
+          fi
+
+      - name: Free up disk space
+        if: steps.changed.outputs.build == 'true'
+        run: sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /opt/hostedtoolcache/CodeQL /usr/local/lib/node_modules || true
+
+      - name: Set up Java
+        if: steps.changed.outputs.build == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        if: steps.changed.outputs.build == 'true'
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Cache Gradle downloads
+        if: steps.changed.outputs.build == 'true'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('pubspec.lock', 'android/**/*.kts', 'android/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: Install dependencies
+        if: steps.changed.outputs.build == 'true'
+        run: flutter pub get
+
+      - name: Generate Drift database code
+        if: steps.changed.outputs.build == 'true'
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Build debug APK
+        if: steps.changed.outputs.build == 'true'
+        run: flutter build apk --debug --target-platform android-arm64
+
+      # The release workflow only runs on a tag, so check here that a signed
+      # release build works, using a throwaway key.
+      - name: Build release APK with a throwaway key
+        if: steps.changed.outputs.build == 'true'
+        run: |
+          keytool -genkeypair -storetype PKCS12 -keystore "$RUNNER_TEMP/ci.jks" -alias ci \
+            -keyalg RSA -keysize 2048 -validity 2 -storepass ci-password -keypass ci-password \
+            -dname "CN=CI"
+          export EMBER_KEYSTORE_PATH="$RUNNER_TEMP/ci.jks"
+          export EMBER_KEYSTORE_PASSWORD=ci-password
+          export EMBER_KEY_ALIAS=ci
+          export EMBER_KEY_PASSWORD=ci-password
+          flutter build apk --release --target-platform android-arm64
+          APKSIGNER="$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)"
+          "$APKSIGNER" verify --print-certs build/app/outputs/flutter-apk/app-release.apk | grep -i "CN=CI"

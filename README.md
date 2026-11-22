@@ -1,101 +1,126 @@
-# Ember
+<h1 align="center">Ember</h1>
 
-A private, local-first habit and streak tracker for Android, built with Flutter.
+<p align="center">
+  A private, local-first habit and streak tracker for Android.<br>
+  Tap a ring, keep the streak burning, and keep your data on your own phone.
+</p>
 
-Tap a ring to log a habit, keep the streak burning, and let your data live on
-your own device. Optional daily backup to your own Google Drive is planned.
+<p align="center">
+  <a href="LICENSE"><img alt="License: GPL-3.0" src="https://img.shields.io/badge/license-GPL--3.0-blue"></a>
+  <a href="https://github.com/ayushgohil/Habit-Tracker-APP/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/ayushgohil/Habit-Tracker-APP?include_prereleases"></a>
+  <img alt="Android 8.0+" src="https://img.shields.io/badge/Android-8.0%2B-3DDC84">
+  <img alt="Built with Flutter" src="https://img.shields.io/badge/built%20with-Flutter-02569B">
+  <a href="https://github.com/ayushgohil/Habit-Tracker-APP/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/ayushgohil/Habit-Tracker-APP/total"></a>
+  <a href="https://github.com/ayushgohil/Habit-Tracker-APP/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/ayushgohil/Habit-Tracker-APP?style=flat"></a>
+</p>
 
-> Status: early scaffold. The licence is not decided yet; the repo is private
-> for now.
+<!--
+Screenshots go here once they are added to docs/screenshots/, for example:
 
-## What works today
+<p align="center">
+  <img src="docs/screenshots/home.png" width="22%" alt="Home">
+  <img src="docs/screenshots/stats.png" width="22%" alt="Stats">
+  <img src="docs/screenshots/widgets.png" width="22%" alt="Widgets">
+  <img src="docs/screenshots/themes.png" width="22%" alt="Themes">
+</p>
+-->
 
+## Why Ember
+
+- **Yours alone.** No account, no ads, no analytics and no server. Everything is stored in a database on your phone, and Ember's own manifest does not ask for internet access.
+- **Built around streaks.** Rings, flexible schedules, streaks that warn you before they break, and a stats screen that shows how you are really doing.
+- **Lives on your home screen.** Seven widgets, a Quick Settings tile and launcher shortcuts let you log a habit without opening the app.
+- **Open and changeable.** Ember is free software under the GPL-3.0. Read it, change it, and help make it better.
+
+## Features
+
+**Tracking**
 - Ring-grid home screen: tap to log, long-press for details, edit, pause, archive or delete
-- Selectable date for logging past days, a per-day journal note, and undo
-- Reorderable Up Next list, and a gold card when everything due today is done
-- Habit library for reordering, and for resuming paused or restoring archived habits
-- Task types: normal, negative (with an optional 2-day rule) and timed
-- Schedules: every day, specific weekdays, N times a week, every N days, and
-  weekly, fortnightly, monthly or yearly goals
-- Habits that need several taps a day (for example 8 glasses of water)
-- Current and best streak and completion rate for every schedule
-- Everything stored locally in SQLite via [Drift](https://drift.simonbinder.eu)
+- Normal, negative ("keep under this limit") and timed habits; habits that need several taps a day, such as 8 glasses of water
+- Schedules: every day, chosen weekdays, N times a week, every N days, and weekly, fortnightly, monthly or yearly goals
+- Log past days, add a note for each day, undo, and set the hour your day starts
+- Reminders for every habit at the times you choose
+- Habit templates, a habit library for pausing, restoring and reordering, and an Up Next list
 
-## Getting started
+**Timers**
+- A full-screen timer with a progress ring that keeps running with the app closed
+- Split a goal into sessions (for example four 25-minute focus rounds), with a notification when each one ends
+- A session that crosses midnight is credited to each day it ran on
 
-You need the [Flutter SDK](https://docs.flutter.dev/get-started/install)
-(3.27 or newer) and Android Studio or the Android command-line tools.
+**Streaks and stats**
+- Current and best streak, completion rate and total done for every habit and schedule
+- A warning when today's streak is about to be lost
+- A calendar you can tap to fix any day, and week, month and year charts you can touch for details
+
+**Widgets and shortcuts**
+- A today's-list widget, plus six card widgets (streak, ring, week, trend, month and grid) in Dark, Glass and Colour styles
+- A Quick Settings tile that logs your next habit, and launcher shortcuts
+- Broadcast actions for Tasker and similar automation apps
+
+**Look and feel**
+- 32 colour themes, light, dark and follow-the-phone modes, and almost 300 habit icons
+
+**Your data**
+- Optional Health Connect: read steps, workouts and sleep to complete habits, and write water you log
+- Back up to a file and restore it, import from CSV
+- Optional app lock using your fingerprint, face or screen lock
+
+## Download
+
+Get the latest APK from the [Releases page](https://github.com/ayushgohil/Habit-Tracker-APP/releases/latest).
+
+| Your phone | File to pick |
+| --- | --- |
+| Almost every phone from the last several years | `ember-…-arm64-v8a.apk` |
+| Older 32-bit phones | `ember-…-armeabi-v7a.apk` |
+| Emulators and some Chromebooks | `ember-…-x86_64.apk` |
+
+Every release is signed with the same key, so a new APK installs over the old one and keeps your habits. `SHA256SUMS.txt` on each release lets you check your download.
+
+**Obtainium (automatic updates).** Add `https://github.com/ayushgohil/Habit-Tracker-APP` in [Obtainium](https://github.com/ImranR98/Obtainium) and set the APK filter to `arm64`.
+
+F-Droid and IzzyOnDroid listings are planned.
+
+## Privacy
+
+Ember stores habits, notes and settings in a local SQLite database. Nothing leaves your phone unless you export a backup yourself. Optional features ask for their own permissions: notifications and exact alarms for reminders, and Health Connect access if you turn on health syncing. You can remove any of them in Android settings.
+
+## Build it yourself
+
+You need the [Flutter SDK](https://docs.flutter.dev/get-started/install) (3.27 or newer), JDK 17 and the Android SDK (Android Studio installs both).
 
 ```bash
-# 1. Generate the Android platform folder (once)
-flutter create --org com.nextlyr --project-name ember --platforms android .
+git clone https://github.com/ayushgohil/Habit-Tracker-APP.git
+cd Habit-Tracker-APP
 
-# 2. Install dependencies
 flutter pub get
-
-# 3. Generate the Drift database code
-dart run build_runner build --delete-conflicting-outputs
-
-# 4. Run on a device or emulator
-flutter run
-
-# Tests
-flutter test
+dart run build_runner build --delete-conflicting-outputs   # database code
+flutter run                                                # on a phone or emulator
 ```
 
-Re-run step 3 whenever you change `lib/data/database.dart`.
+Run `flutter analyze` and `flutter test` before you open a pull request. A local build is signed with Android's debug key, which is fine for trying things out. Release signing is explained in [docs/RELEASING.md](docs/RELEASING.md).
 
-## Signing (so a new APK can update the installed one)
+## Contributing
 
-Android only lets an APK update an installed app when both are signed with the
-same key. Without a key configured, every CI build is signed with a different
-throwaway key, so installing a newer build over the old one fails with
-"App not installed as package conflicts with an existing package".
+Bug reports, ideas and pull requests are welcome, whether it is a typo, a new icon, a translation fix or a whole feature.
 
-One-time setup:
+1. Read [CONTRIBUTING.md](CONTRIBUTING.md) for setup, checks and what a good pull request looks like.
+2. Skim [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) to find your way around the code.
+3. Look for issues labelled `good first issue`, or open one to talk through your idea first.
 
-1. Actions tab -> **Create signing key** -> **Run workflow**.
-2. When it finishes, download the `ember-signing-key` artifact. It holds
-   `ember-signing.jks` (the key) and `ember-signing-secrets.txt`.
-3. Repo **Settings -> Secrets and variables -> Actions -> New repository secret**.
-   Add four secrets, copying each value from `ember-signing-secrets.txt`:
-   `ANDROID_KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`.
-4. Keep a copy of `ember-signing.jks` and the passwords somewhere safe (a
-   password manager). If you lose them you can never update installed copies
-   again. Then delete the artifact from the workflow run.
-5. Push or re-run the build. The "Show signing certificate" step prints the
-   certificate fingerprint; it must be identical on every build.
-
-Builds made before this setup are signed with other keys, so uninstall the old
-app once (make a backup first: Back up & restore) before installing the first
-signed build. After that, updates install over the top.
-
-## Project layout
-
-```
-lib/
-  main.dart, app.dart      app entry and lifecycle
-  core/                    pure Dart: day helpers, schedules, streak maths
-  data/                    Drift database and Riverpod providers
-  theme/                   Ember colours and theme
-  ui/
-    home/                  ring grid, habit tile, details sheet
-    add_habit/             new-habit form
-test/                      streak logic tests
-```
+Please follow the [Code of Conduct](CODE_OF_CONDUCT.md). To report a security problem privately, see [SECURITY.md](SECURITY.md).
 
 ## Roadmap
 
-1. Local reminders (per-habit notification times)
-2. Stats and history (calendar heatmap, best streak, completion rate)
-3. Optional daily backup to the Google Drive app-data folder
-4. Manual export and import of a backup file
-5. Home screen widget
-6. Wear OS companion
+- Release polish, store listings and screenshots
+- Optional backup to your own Google Drive
+- Translations
+- A Wear OS companion
 
-## Notes for later
+Not planned: Screen Time tracking (Android only allows it with a special usage-access permission), accounts and cloud sync.
 
-- Backups will use the `drive.appdata` scope, which keeps files in a hidden
-  folder only this app can read.
-- Never commit signing keys, `key.properties`, or Google OAuth client files.
-  They are already in `.gitignore`.
+## License
+
+Ember is free software, released under the [GNU General Public License v3.0](LICENSE). You can use, study, change and share it, and any version you share must stay open under the same license.
+
+Copyright (C) 2026 Ayush Gohil.
