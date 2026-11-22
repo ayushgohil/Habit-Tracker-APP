@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
@@ -51,7 +53,7 @@ class _HabitStatsScreenState extends ConsumerState<HabitStatsScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
         children: [
-          _StatsGrid(history: history),
+          _StatsGrid(history: history, color: color),
           const SizedBox(height: 24),
           _CalendarCard(
             history: history,
@@ -100,40 +102,54 @@ class _HabitStatsScreenState extends ConsumerState<HabitStatsScreen> {
 }
 
 class _StatsGrid extends StatelessWidget {
-  const _StatsGrid({required this.history});
+  const _StatsGrid({required this.history, required this.color});
   final HabitHistory history;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
     final stats = history.stats;
-    final tiles = <(String, String)>[
-      ('Current streak', stats.currentStreak.longLabel),
-      ('Best streak', stats.bestStreak.longLabel),
-      ('Completion', '${(stats.completionRate * 100).round()}%'),
-      ('Total done', '${history.totalDone}'),
+    final tiles = <(String, String, IconData)>[
+      ('Current streak', stats.currentStreak.longLabel, Icons.local_fire_department_rounded),
+      ('Best streak', stats.bestStreak.longLabel, Icons.emoji_events_rounded),
+      ('Completion', '${(stats.completionRate * 100).round()}%', Icons.pie_chart_rounded),
+      ('Total done', '${history.totalDone}', Icons.check_circle_rounded),
     ];
-    return GridView.count(
-      crossAxisCount: 2,
+    return GridView(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 12,
-      childAspectRatio: 1.7,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        mainAxisExtent: 84,
+      ),
       children: [
         for (final t in tiles)
           Container(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
             decoration: BoxDecoration(
               color: EmberColors.surface,
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Text(t.$1, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: EmberColors.textMuted)),
-                const SizedBox(height: 2),
-                Text(t.$2, style: Theme.of(context).textTheme.titleLarge),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(t.$1, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: EmberColors.textMuted)),
+                      const SizedBox(height: 2),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(t.$2, style: Theme.of(context).textTheme.titleLarge),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(t.$3, color: color.withValues(alpha: .85), size: 22),
               ],
             ),
           ),
@@ -309,27 +325,62 @@ class _ChartCard extends StatelessWidget {
   final Color color;
   final ValueChanged<_Range> onRange;
 
+  static String _days(int n) => n == 1 ? '1 day' : '$n days';
+
   @override
   Widget build(BuildContext context) {
     final List<double> values;
     final List<String> labels;
+    final List<String> tooltips;
+    final List<String> figures;
+    final String summary;
+    final String title;
     final double maxValue;
+    final String axisTop;
+    final String? axisMid;
     var every = 1;
+
+    String percent(double v) => v >= 0.999 ? 'Done' : '${(v * 100).round()}%';
+
     switch (range) {
       case _Range.week:
-        values = dailyProgress(amounts: history.amounts, targetOf: history.targetOn, end: today, days: 7);
-        labels = [for (var i = 6; i >= 0; i--) DateFormat('E').format(addDays(today, -i)).substring(0, 1)];
-        maxValue = 1;
       case _Range.month:
-        values = dailyProgress(amounts: history.amounts, targetOf: history.targetOn, end: today, days: 30);
-        labels = [for (var i = 29; i >= 0; i--) '${addDays(today, -i).day}'];
+        final n = range == _Range.week ? 7 : 30;
+        values = dailyProgress(amounts: history.amounts, targetOf: history.targetOn, end: today, days: n);
+        final dates = [for (var i = n - 1; i >= 0; i--) addDays(today, -i)];
+        labels = [
+          for (final d in dates) range == _Range.week ? DateFormat('E').format(d) : '${d.day}',
+        ];
+        tooltips = [
+          for (var i = 0; i < n; i++)
+            '${DateFormat(range == _Range.week ? 'EEE d MMM' : 'd MMM').format(dates[i])} · ${percent(values[i])}',
+        ];
+        figures = range == _Range.week
+            ? [for (final v in values) v <= 0 ? '' : '${(v * 100).round()}%']
+            : const <String>[];
+        final done = values.where((v) => v >= 0.999).length;
+        final average = (values.fold<double>(0, (a, b) => a + b) / n * 100).round();
+        summary = '${_days(done)} done out of $n · average $average%';
+        title = 'Progress per day';
         maxValue = 1;
-        every = 5;
+        axisTop = '100%';
+        axisMid = '50%';
+        every = range == _Range.week ? 1 : 5;
       case _Range.year:
         final counts = doneDaysPerMonth(doneDays: history.doneDays, end: today, months: 12);
         values = [for (final c in counts) c.toDouble()];
-        labels = [for (var i = 11; i >= 0; i--) DateFormat('MMM').format(DateTime(today.year, today.month - i)).substring(0, 1)];
-        maxValue = 31;
+        final months = [for (var i = 11; i >= 0; i--) DateTime(today.year, today.month - i)];
+        labels = [for (final m in months) DateFormat('MMM').format(m)];
+        tooltips = [for (var i = 0; i < 12; i++) '${DateFormat('MMM yyyy').format(months[i])} · ${_days(counts[i])}'];
+        figures = [for (final c in counts) c > 0 ? '$c' : ''];
+        final top = counts.fold<int>(0, math.max);
+        final nice = top <= 4 ? 4 : (top <= 8 ? 8 : (top <= 16 ? 16 : 31));
+        maxValue = nice.toDouble();
+        axisTop = '$nice';
+        axisMid = '${nice ~/ 2}';
+        final total = counts.fold<int>(0, (a, b) => a + b);
+        summary = '${_days(total)} done in the last 12 months';
+        title = 'Days done per month';
     }
     return Container(
       padding: const EdgeInsets.all(14),
@@ -337,8 +388,14 @@ class _ChartCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(range == _Range.year ? 'Days done per month' : 'Progress per day', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 10),
+          Text(title, style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 2),
+          Text(
+            summary,
+            key: const Key('chart-summary'),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: EmberColors.textMuted),
+          ),
+          const SizedBox(height: 12),
           SegmentedButton<_Range>(
             segments: const [
               ButtonSegment(value: _Range.week, label: Text('Week')),
@@ -349,7 +406,7 @@ class _ChartCard extends StatelessWidget {
             showSelectedIcon: false,
             onSelectionChanged: (s) => onRange(s.first),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           EmberBarChart(
             key: Key('chart-${range.name}'),
             values: values,
@@ -357,6 +414,16 @@ class _ChartCard extends StatelessWidget {
             maxValue: maxValue,
             color: color,
             labelEvery: every,
+            axisTop: axisTop,
+            axisMid: axisMid,
+            valueTexts: figures,
+            tooltips: tooltips,
+            highlightLast: range != _Range.month,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Touch or drag across the bars for details.',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(color: EmberColors.textMuted),
           ),
         ],
       ),

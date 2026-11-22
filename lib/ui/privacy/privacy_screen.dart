@@ -59,34 +59,51 @@ class PrivacyScreen extends ConsumerWidget {
             style: muted,
           ),
           const SizedBox(height: 20),
-          Text('Tasker and other automation apps', style: text.titleMedium),
-          const SizedBox(height: 4),
-          Text(
-            'Send a broadcast with one of these actions and a text extra named habit holding the habit\'s name:',
-            style: muted,
-          ),
-          const SizedBox(height: 8),
-          for (final (name, what) in automationActions)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Material(
-                color: EmberColors.surface,
-                borderRadius: BorderRadius.circular(14),
-                clipBehavior: Clip.antiAlias,
-                child: ListTile(
-                  key: Key('action-$name'),
-                  title: Text('$automationPackage.action.$name', style: const TextStyle(fontSize: 13)),
-                  subtitle: Text(what),
-                  trailing: const Icon(Icons.copy_rounded, size: 18),
-                  onTap: () async {
-                    await Clipboard.setData(ClipboardData(text: '$automationPackage.action.$name'));
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Copied')));
-                    }
-                  },
+          Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              key: const Key('automation-section'),
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: EdgeInsets.zero,
+              shape: const Border(),
+              collapsedShape: const Border(),
+              title: Text('Automation (advanced)', style: text.titleMedium),
+              subtitle: Text('For apps like Tasker or MacroDroid', style: muted),
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'You can ignore this unless you use an automation app. Those apps can tell Ember to log a habit, '
+                    'for example when you reach the gym. Send a broadcast with one of the actions below and a text extra '
+                    'named habit holding the habit\'s name. Tap an action to copy it.',
+                    style: muted,
+                  ),
                 ),
-              ),
+                const SizedBox(height: 8),
+                for (final (name, what) in automationActions)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Material(
+                      color: EmberColors.surface,
+                      borderRadius: BorderRadius.circular(14),
+                      clipBehavior: Clip.antiAlias,
+                      child: ListTile(
+                        key: Key('action-$name'),
+                        title: Text('$automationPackage.action.$name', style: const TextStyle(fontSize: 13)),
+                        subtitle: Text(what),
+                        trailing: const Icon(Icons.copy_rounded, size: 18),
+                        onTap: () async {
+                          await Clipboard.setData(ClipboardData(text: '$automationPackage.action.$name'));
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Copied')));
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+              ],
             ),
+          ),
         ],
       ),
     );
