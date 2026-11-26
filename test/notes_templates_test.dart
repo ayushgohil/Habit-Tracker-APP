@@ -91,7 +91,7 @@ void main() {
 
   testWidgets('a quick-start suggestion fills in the new habit form', (tester) async {
     tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(411, 800);
+    tester.view.physicalSize = const Size(411, 3000);
     addTearDown(tester.view.reset);
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     await tester.pumpWidget(ProviderScope(

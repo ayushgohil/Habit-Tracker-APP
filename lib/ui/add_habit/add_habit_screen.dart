@@ -1297,7 +1297,14 @@ class _HabitPreview extends StatelessWidget {
                       children: [
                         Icon(icon, size: 15, color: on),
                         const SizedBox(width: 6),
-                        Text(text, style: textTheme.labelMedium?.copyWith(color: on)),
+                        Flexible(
+                          child: Text(
+                            text,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: textTheme.labelMedium?.copyWith(color: on),
+                          ),
+                        ),
                       ],
                     ),
                   ),
