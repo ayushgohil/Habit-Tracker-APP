@@ -9,6 +9,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'add_habit_helpers.dart';
+
 /// Lets real async work (the in-memory database) run, then redraws.
 Future<void> settle(WidgetTester tester) async {
   await tester.runAsync(
@@ -78,8 +80,7 @@ void main() {
     await tester.tap(find.text('Add a habit'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'DSA learning');
-    await tester.tap(find.text('Create habit'));
-    await settle(tester);
+    await createHabit(tester);
     expect(find.text('DSA learning'), findsWidgets);
 
     // The menu must fit without overflowing, and scroll to the last row.

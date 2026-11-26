@@ -13,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'add_habit_helpers.dart';
 import 'home_flow_test.dart' show settle;
 
 void main() {
@@ -137,15 +138,14 @@ void main() {
     await settle(tester);
     await tester.tap(find.byKey(const Key('template-read'))); // timed, 20 minutes
     await settle(tester);
+    await openStep(tester, 1);
     await tester.ensureVisible(find.byKey(const Key('session-field')));
     await tester.enterText(find.byKey(const Key('session-field')), '5');
     await tester.pump();
     expect(find.byKey(const Key('session-summary')), findsOneWidget);
     expect(find.text('4 sessions of 5 min. You get an alert as each one ends.'), findsOneWidget);
 
-    await tester.ensureVisible(find.text('Create habit'));
-    await tester.tap(find.text('Create habit'));
-    await settle(tester);
+    await createHabit(tester);
 
     final habits = await tester.runAsync(() => appDb.select(appDb.habits).get());
     expect(habits!.single.targetDurationSeconds, 1200);

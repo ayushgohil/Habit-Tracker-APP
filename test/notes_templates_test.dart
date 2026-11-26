@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'add_habit_helpers.dart';
 import 'home_flow_test.dart' show settle;
 
 DayNote note(String day, String text, {bool pinned = false}) => DayNote(day: day, note: text, pinned: pinned);
@@ -90,7 +91,7 @@ void main() {
 
   testWidgets('a quick-start suggestion fills in the new habit form', (tester) async {
     tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(411, 800);
+    tester.view.physicalSize = const Size(411, 3000);
     addTearDown(tester.view.reset);
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     await tester.pumpWidget(ProviderScope(
@@ -104,12 +105,15 @@ void main() {
     await tester.tap(find.byKey(const Key('template-water')));
     await settle(tester);
     expect(find.widgetWithText(TextField, 'Drink water'), findsOneWidget);
+    await openStep(tester, 1);
     expect(find.widgetWithText(TextField, '2000'), findsOneWidget);
-    expect(find.widgetWithText(TextField, 'ml'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'ml'), findsWidgets);
 
+    await openStep(tester, 0);
     await tester.tap(find.byKey(const Key('template-read')));
     await settle(tester);
     expect(find.widgetWithText(TextField, 'Read'), findsOneWidget);
+    await openStep(tester, 1);
     expect(find.widgetWithText(TextField, '20'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox());

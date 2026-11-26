@@ -52,6 +52,9 @@ class Habits extends Table {
   IntColumn get periodTarget => integer().withDefault(const Constant(1))();
   IntColumn get targetDurationSeconds => integer().withDefault(const Constant(1800))();
   DateTimeColumn get pausedAt => dateTime().nullable()();
+
+  /// The last day the habit is scheduled. Null means it never ends.
+  DateTimeColumn get endDate => dateTime().nullable()();
   BoolColumn get reminderEnabled => boolean().withDefault(const Constant(false))();
   IntColumn get reminderHour => integer().withDefault(const Constant(20))();
   IntColumn get reminderMinute => integer().withDefault(const Constant(0))();
@@ -154,7 +157,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -193,6 +196,9 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 10) {
             await m.addColumn(habits, habits.sessionSeconds);
+          }
+          if (from < 13) {
+            await m.addColumn(habits, habits.endDate);
           }
           if (from < 12) {
             await m.addColumn(habits, habits.linkUrl);

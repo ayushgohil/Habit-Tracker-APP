@@ -13,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'add_habit_helpers.dart';
 import 'home_flow_test.dart' show settle;
 
 void main() {
@@ -103,9 +104,7 @@ void main() {
     await settle(tester);
     await tester.tap(find.byKey(const Key('template-water')));
     await settle(tester);
-    await tester.ensureVisible(find.text('Create habit'));
-    await tester.tap(find.text('Create habit'));
-    await settle(tester);
+    await createHabit(tester);
 
     final habits = await tester.runAsync(() => appDb.select(appDb.habits).get());
     expect(habits!.single.name, 'Drink water');

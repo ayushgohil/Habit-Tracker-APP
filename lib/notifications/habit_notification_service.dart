@@ -80,6 +80,7 @@ class HabitNotificationService {
       now: DateTime.now(),
       schedule: scheduleForHabit(habit),
       startDate: habit.createdAt,
+      endDate: habit.endDate,
       hour: habit.reminderHour,
       minute: habit.reminderMinute,
       nudgeEnabled: habit.partialNudgeEnabled,

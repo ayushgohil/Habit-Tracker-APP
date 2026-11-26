@@ -51,7 +51,7 @@ String formatExtraReminders(List<(int, int)> times) => [
 
 /// The reminders to schedule for one habit from [now] on.
 ///
-/// - Only days the habit is due, and only from its start date.
+/// - Only days the habit is due, from its start date until its end date.
 /// - Nothing for today when the habit is already done today, so the reminder
 ///   never nags about something finished.
 /// - Times that have already passed are skipped.
@@ -59,6 +59,7 @@ List<PlannedReminder> planReminders({
   required DateTime now,
   required Schedule schedule,
   required DateTime startDate,
+  DateTime? endDate,
   required int hour,
   required int minute,
   required bool nudgeEnabled,
@@ -72,7 +73,7 @@ List<PlannedReminder> planReminders({
   final out = <PlannedReminder>[];
   for (var i = 0; i < days; i++) {
     final day = addDays(today, i);
-    if (!hasStartedBy(startDate, day) || !schedule.isDue(day)) continue;
+    if (!hasStartedBy(startDate, day) || hasEndedBefore(endDate, day) || !schedule.isDue(day)) continue;
     if (i == 0 && doneToday) continue;
     final main = DateTime(day.year, day.month, day.day, hour, minute);
     if (main.isAfter(now)) out.add(PlannedReminder(main, slot: mainSlot));
