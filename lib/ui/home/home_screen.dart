@@ -506,31 +506,105 @@ class _EmptyState extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     return SliverFillRemaining(
       hasScrollBody: false,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.local_fire_department_rounded, size: 56, color: EmberColors.ember),
-              const SizedBox(height: 16),
-              Text(pastDay ? 'No habits on this day' : 'Light your first ember', style: textTheme.titleLarge),
-              const SizedBox(height: 8),
-              Text(
-                  pastDay
-                      ? 'Your habits start on a later day. Go back to today to log them.'
-                      : 'Add a habit and keep it burning every day.',
-                  textAlign: TextAlign.center,
-                  style: textTheme.bodyMedium?.copyWith(color: EmberColors.textMuted)),
-              const SizedBox(height: 24),
-              if (pastDay)
-                FilledButton(onPressed: onToday, child: const Text('Back to today'))
-              else
-                FilledButton(onPressed: onAdd, child: const Text('Add a habit')),
-            ],
+      child: Stack(
+        children: [
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    key: const Key('empty-illustration'),
+                    width: 112,
+                    height: 112,
+                    decoration: BoxDecoration(
+                      color: EmberColors.surface,
+                      borderRadius: BorderRadius.circular(32),
+                    ),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Icon(Icons.local_fire_department_rounded, size: 60, color: EmberColors.ember),
+                        if (!pastDay)
+                          Positioned(
+                            right: 14,
+                            bottom: 14,
+                            child: Container(
+                              width: 26,
+                              height: 26,
+                              decoration: BoxDecoration(color: EmberColors.ember, shape: BoxShape.circle),
+                              child: const Icon(Icons.add_rounded, size: 18, color: Colors.white),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(pastDay ? 'No habits on this day' : 'Light your first ember', style: textTheme.titleLarge),
+                  const SizedBox(height: 8),
+                  Text(
+                      pastDay
+                          ? 'Your habits start on a later day. Go back to today to log them.'
+                          : 'Add a habit and keep it burning every day.',
+                      textAlign: TextAlign.center,
+                      style: textTheme.bodyMedium?.copyWith(color: EmberColors.textMuted)),
+                  const SizedBox(height: 24),
+                  if (pastDay)
+                    FilledButton(onPressed: onToday, child: const Text('Back to today'))
+                  else
+                    FilledButton(onPressed: onAdd, child: const Text('Add a habit')),
+                ],
+              ),
+            ),
           ),
-        ),
+          if (!pastDay)
+            Positioned(
+              right: 30,
+              bottom: 96,
+              child: IgnorePointer(
+                child: CustomPaint(
+                  key: const Key('empty-arrow'),
+                  size: const Size(64, 72),
+                  painter: _HintArrowPainter(EmberColors.textMuted),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
+}
+
+/// A dashed curve with an arrow head, pointing down and right at the + button.
+class _HintArrowPainter extends CustomPainter {
+  _HintArrowPainter(this.color);
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const start = Offset(2, 2);
+    final end = Offset(size.width - 6, size.height - 6);
+    final path = Path()
+      ..moveTo(start.dx, start.dy)
+      ..quadraticBezierTo(size.width * .1, size.height * .85, end.dx - 4, end.dy);
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.4
+      ..strokeCap = StrokeCap.round;
+    for (final m in path.computeMetrics()) {
+      for (var d = 0.0; d < m.length; d += 11) {
+        canvas.drawPath(m.extractPath(d, (d + 6).clamp(0, m.length)), paint);
+      }
+    }
+    final head = Path()
+      ..moveTo(end.dx - 12, end.dy - 8)
+      ..lineTo(end.dx, end.dy)
+      ..lineTo(end.dx - 12, end.dy + 7);
+    canvas.drawPath(head, paint..strokeJoin = StrokeJoin.round);
+  }
+
+  @override
+  bool shouldRepaint(_HintArrowPainter old) => old.color != color;
 }

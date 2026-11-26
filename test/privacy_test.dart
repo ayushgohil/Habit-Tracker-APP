@@ -17,6 +17,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'add_habit_helpers.dart';
 import 'home_flow_test.dart' show settle;
 
 class FakeAuth implements LockAuthenticator {
@@ -293,10 +294,9 @@ void main() {
       await tester.tap(find.byType(FloatingActionButton));
       await settle(tester);
       await tester.enterText(find.byType(TextField).first, 'Pray');
+      await openStep(tester, 3);
       await tester.enterText(find.byKey(const Key('link-field')), 'example.com/start');
-      await tester.ensureVisible(find.text('Create habit'));
-      await tester.tap(find.text('Create habit'));
-      await settle(tester);
+      await createHabit(tester);
 
       final saved = (await tester.runAsync(() => db.select(db.habits).get()))!.single;
       expect(saved.linkUrl, 'https://example.com/start');
@@ -314,9 +314,9 @@ void main() {
       await tester.tap(find.byType(FloatingActionButton));
       await settle(tester);
       await tester.enterText(find.byType(TextField).first, 'Pray');
+      await openStep(tester, 3);
       await tester.enterText(find.byKey(const Key('link-field')), 'javascript:alert(1)');
-      await tester.ensureVisible(find.text('Create habit'));
-      await tester.tap(find.text('Create habit'));
+      await tester.tap(find.byKey(const Key('primary-action')));
       await settle(tester);
       expect(find.textContaining('does not look right'), findsOneWidget);
       expect((await tester.runAsync(() => db.select(db.habits).get()))!, isEmpty);

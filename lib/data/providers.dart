@@ -109,7 +109,16 @@ GoalTimeline timelineFor(Habit habit, Iterable<HabitGoal> goals) {
   ]);
 }
 
-HabitStats _statsFor(Habit habit, GoalTimeline timeline, Map<String, int> amounts, DateTime today) {
+/// The day a habit's numbers are worked out to: today, or its last day once it
+/// has ended, so finishing a habit never counts as missing the days after it.
+DateTime _throughDay(Habit habit, DateTime today) {
+  final end = habit.endDate;
+  if (end == null || !hasEndedBefore(end, today)) return today;
+  return startOfDay(end);
+}
+
+HabitStats _statsFor(Habit habit, GoalTimeline timeline, Map<String, int> amounts, DateTime day) {
+  final today = _throughDay(habit, day);
   return calculateHabitStats(
     // Periods are laid out with the current schedule. Each day is judged
     // against the goal that applied on that day.
@@ -154,8 +163,8 @@ AsyncValue<List<HabitView>> _viewsFor(
   final key = dayKey(day);
   return AsyncValue.data([
     for (final habit in habits)
-      // A habit doesn't exist on days before it started.
-      if (hasStartedBy(habit.createdAt, day))
+      // A habit doesn't exist before it started or after it ended.
+      if (hasStartedBy(habit.createdAt, day) && !hasEndedBefore(habit.endDate, day))
         _view(habit, timelineFor(habit, goals), byHabit[habit.id] ?? const {}, day, key),
   ]);
 }
@@ -186,7 +195,7 @@ Future<List<HabitHistory>> loadHistoriesOn(AppDatabase db, DateTime day) async {
   }
   return [
     for (final habit in habits)
-      if (hasStartedBy(habit.createdAt, day))
+      if (hasStartedBy(habit.createdAt, day) && !hasEndedBefore(habit.endDate, day))
         buildHistory(habit, timelineFor(habit, goals), byHabit[habit.id] ?? const {}, day),
   ];
 }
@@ -265,7 +274,7 @@ HabitHistory buildHistory(Habit habit, GoalTimeline timeline, Map<String, int> a
     amounts: amounts,
     stats: _statsFor(habit, timeline, amounts, today),
     timeline: timeline,
-    doneDays: _doneDays(habit, timeline, amounts, today),
+    doneDays: _doneDays(habit, timeline, amounts, _throughDay(habit, today)),
   );
 }
 
@@ -320,10 +329,12 @@ class HabitActions {
     bool limitMode = false,
     String linkUrl = '',
     bool writeToHealth = false,
+    DateTime? endDate,
   }) => _db.insertHabit(HabitsCompanion.insert(
     name: name, iconKey: iconKey, colorValue: colorValue, healthMetric: Value(healthMetric),
     unitLabel: Value(unitLabel), stepSize: Value(stepSize), extraReminders: Value(extraReminders), sessionSeconds: Value(sessionSeconds), limitMode: Value(limitMode), linkUrl: Value(linkUrl), writeToHealth: Value(writeToHealth),
     createdAt: startDate == null ? const Value.absent() : Value(startDate),
+    endDate: Value(endDate),
     scheduleType: Value(schedule.type.index), weekdayMask: Value(schedule.weekdayMask),
     timesPerWeek: Value(schedule.timesPerWeek), dailyTarget: Value(dailyTarget),
     sortOrder: Value(sortOrder), taskType: Value(taskType.index),
@@ -348,12 +359,14 @@ class HabitActions {
     bool limitMode = false,
     String linkUrl = '',
     bool writeToHealth = false,
+    DateTime? endDate,
   }) async {
     final before = await (_db.select(_db.habits)..where((h) => h.id.equals(id))).getSingleOrNull();
     await _db.updateHabit(id, HabitsCompanion(
     name: Value(name), iconKey: Value(iconKey), colorValue: Value(colorValue), healthMetric: Value(healthMetric),
     unitLabel: Value(unitLabel), stepSize: Value(stepSize), extraReminders: Value(extraReminders), sessionSeconds: Value(sessionSeconds), limitMode: Value(limitMode), linkUrl: Value(linkUrl), writeToHealth: Value(writeToHealth),
     createdAt: startDate == null ? const Value.absent() : Value(startDate),
+    endDate: Value(endDate),
     scheduleType: Value(schedule.type.index), weekdayMask: Value(schedule.weekdayMask),
     timesPerWeek: Value(schedule.timesPerWeek), intervalDays: Value(schedule.intervalDays),
     periodTarget: Value(schedule.periodTarget), dailyTarget: Value(dailyTarget),

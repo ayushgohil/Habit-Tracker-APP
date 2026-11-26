@@ -78,7 +78,11 @@ class _HabitStatsScreenState extends ConsumerState<HabitStatsScreen> {
 
   Future<void> _onDayTap(HabitHistory history, DateTime day) async {
     final today = currentDay();
-    if (day.isAfter(today) || day.isBefore(startOfDay(history.habit.createdAt))) return;
+    if (day.isAfter(today) ||
+        day.isBefore(startOfDay(history.habit.createdAt)) ||
+        hasEndedBefore(history.habit.endDate, day)) {
+      return;
+    }
     final actions = ref.read(habitActionsProvider);
     final current = history.amounts[dayKey(day)] ?? 0;
     final timed = history.habit.taskType == HabitTaskType.timed.index;

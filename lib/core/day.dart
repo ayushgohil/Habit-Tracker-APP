@@ -41,6 +41,11 @@ int daysBetween(DateTime from, DateTime to) => DateTime.utc(
 bool hasStartedBy(DateTime start, DateTime day) =>
     !startOfDay(start).isAfter(startOfDay(day));
 
+/// Whether a habit whose last day is [end] is already over on [day]. A habit
+/// with no end date ([end] null) never ends.
+bool hasEndedBefore(DateTime? end, DateTime day) =>
+    end != null && startOfDay(day).isAfter(startOfDay(end));
+
 /// Monday-based start of the week containing [d].
 DateTime startOfWeek(DateTime d) => addDays(startOfDay(d), -(d.weekday - 1));
 
