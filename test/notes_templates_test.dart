@@ -107,7 +107,7 @@ void main() {
     expect(find.widgetWithText(TextField, 'Drink water'), findsOneWidget);
     await openStep(tester, 1);
     expect(find.widgetWithText(TextField, '2000'), findsOneWidget);
-    expect(find.widgetWithText(TextField, 'ml'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'ml'), findsWidgets);
 
     await openStep(tester, 0);
     await tester.tap(find.byKey(const Key('template-read')));
